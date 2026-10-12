@@ -1,0 +1,34 @@
+---
+description: Named frontend models and explicit parameter and return types
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Explicit models and types
+
+- Declare named component props, form drafts, hook results, API errors, and workflow state models in clearly named files. Use literal unions or discriminated unions for statuses and mutually exclusive states.
+- Reuse generated API request/response types from `src/generated/api.ts`; declare named aliases rather than recreating backend models. Keep UI draft models distinct from API payloads and map them explicitly.
+- Every handwritten function, component, hook, method, arrow function, event handler, test callback, and higher-order callback must explicitly annotate its parameters and return type.
+- Annotate destructured, optional, defaulted, and rest parameters. Use `Promise<T>` for async functions and `void` / `Promise<void>` for side effects.
+- Give synchronous components `ReactElement` or `ReactElement | null` return types. Give hooks named return contracts or explicit library result types; type events with the correct React event and element types.
+- Constructors and setters omit return annotations only because TypeScript syntax forbids them; their parameters remain explicitly typed. Getters require return annotations.
+- Keep strict TypeScript enabled. Do not use explicit or implicit `any`, non-null assertions, or double casts to bypass missing checks. Validate/narrow `unknown` errors and external data before use.
+- Type state, refs, context values, and mutable collections so nullable and uninitialized states are deliberate. Do not turn missing numeric values into zero through a cast or fallback.
+- Generated source is exempt from handwritten signature/style rules. Regenerate it using the approved generator; never edit it manually to satisfy lint.
+- Configure TypeScript-aware linting to enforce explicit returns, including callbacks, no explicit `any`, and unsafe operations. Use typed Vitest/Vite configuration rather than casting config to `any`.
+
+```tsx
+import type { ChangeEvent, ReactElement } from 'react';
+
+interface TeamNameFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+export function TeamNameField({ value, onChange }: TeamNameFieldProps): ReactElement {
+  return <label>Team name<input value={value}
+    onChange={(event: ChangeEvent<HTMLInputElement>): void => {
+      onChange(event.currentTarget.value);
+    }} /></label>;
+}
+```

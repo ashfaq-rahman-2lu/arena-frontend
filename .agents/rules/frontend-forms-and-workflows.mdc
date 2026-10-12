@@ -1,0 +1,20 @@
+---
+description: Validated forms, explicit async states, stale writes, and score suggestion safety
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Forms and asynchronous workflows
+
+- Define typed draft and payload models separately. Validate input before submitting and show actionable field errors; server validation remains authoritative.
+- Distinguish an empty number field, invalid number, null/unreadable value, and numeric zero. Never use `Number('')` or falsy checks to silently invent a score.
+- Model complex workflows with explicit states such as editing, extracting, previewing, confirming, saving, success, and failure. Avoid unrelated boolean flags that allow impossible combinations.
+- Use form submission semantics and explicit button types. Pending actions must prevent duplicate requests while retaining readable progress feedback and a recovery path.
+- Preserve unsaved user edits during background refetches. Define how a new resource resets a draft and how dirty drafts are handled when navigating away.
+- Send the relevant tournament/match revisions with writes. On a stale-write conflict, explain what changed and offer refresh/reconciliation; never silently resubmit with a newer revision.
+- For destructive corrections, show the server-provided impact and require explicit confirmation tied to the current preview. Invalidate the preview when relevant score fields or revisions change.
+- AI extraction is a draft suggestion, never an automatic result save. A late extraction response must not overwrite fields edited while extraction was pending; ambiguous and unreadable values stay unresolved.
+- Release preview object URLs, timers, subscriptions, and other browser resources when replaced or unmounted. Reset file inputs deliberately and validate size/type before upload for user feedback.
+- Show distinct initial loading, background refresh, empty, error, pending, and success states. Avoid flashes of signed-out controls before the initial session check completes.
+- Navigate, close dialogs, and show success only after the operation succeeds. Keep failed inputs available for correction; do not clear a form or hide an error in a `finally` block.
+- Format dates, counts, and numbers for the intended audience using locale-aware utilities; explain time zones when a displayed time could be ambiguous.

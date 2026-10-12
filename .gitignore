@@ -1,0 +1,27 @@
+# Dependencies, builds, and local caches
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Test output and logs
+coverage/
+playwright-report/
+test-results/
+*.log
+npm-debug.log*
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Cloudflare local runtime artifacts and bindings
+.wrangler/
+.pages-functions/
+.dev.vars
+.dev.vars.*

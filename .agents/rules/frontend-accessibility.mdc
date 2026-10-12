@@ -1,0 +1,20 @@
+---
+description: Semantic markup, keyboard access, form labeling, dialogs, tables, and accessible feedback
+globs: "**/*.{tsx,css,html}"
+alwaysApply: false
+---
+
+# Accessibility
+
+- Prefer native semantic HTML. Use buttons for actions, links for navigation, headings in a logical hierarchy, and main/nav/header/footer landmarks where appropriate.
+- Every interactive control must work with keyboard input and have visible focus. Do not use clickable divs or spans as replacements for native controls.
+- Provide a programmatically associated label for every input, accessible names for icon-only controls, and appropriate autocomplete/input modes for forms. Placeholder text is not a label.
+- Connect field hints and errors with `aria-describedby`; mark invalid fields with `aria-invalid`. Do not overwrite existing descriptions when composing field primitives.
+- Expose choices with native radios/checkboxes or correct pressed/selected semantics. Implement actual tabs with their required keyboard behavior; navigation links are not automatically ARIA tabs.
+- Dialogs need an accessible title, intentional initial focus, contained keyboard focus, Escape handling where safe, and focus restoration to the trigger. Test nested and asynchronous dialog workflows.
+- Announce relevant loading, success, and error feedback with appropriate live regions. Keep persistent actionable errors in the page; do not rely only on disappearing toasts.
+- Use real tables with header cells and appropriate row/column associations for standings. Provide accessible names and understandable reading order for fixtures and brackets.
+- Never communicate status or errors by color alone. Supply text or semantic indicators, sufficient text/control contrast, and usable pointer targets with adequate spacing.
+- Respect text zoom and reduced motion. Keep necessary controls and content usable when layouts reflow; hiding essential information on mobile is not a responsive solution.
+- Mark decorative icons as hidden from assistive technology and give informative images meaningful alt text. Avoid duplicate announcements from icons beside labeled controls.
+- Verify keyboard-only flows and use automated accessibility checks where available; automated checks do not replace focus/order and interaction review.

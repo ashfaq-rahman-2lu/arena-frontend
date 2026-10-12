@@ -1,0 +1,56 @@
+name: Browser checks against backend test image
+on:
+  workflow_dispatch:
+    inputs:
+      backend_test_image:
+        description: Backend image built with Docker target browser-test (prefer an immutable digest)
+        required: true
+        type: string
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          {
+            POSTGRES_USER: arena,
+            POSTGRES_PASSWORD: arena,
+            POSTGRES_DB: arena_browser_test,
+          }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U arena" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      BACKEND_TEST_IMAGE: ${{ inputs.backend_test_image }}
+      BROWSER_DATABASE_URL: postgresql://arena:arena@127.0.0.1:5432/arena_browser_test
+      BROWSER_API_URL: http://127.0.0.1:3001
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Start isolated backend fixture
+        run: |
+          docker run --network host --rm -d --name arena-browser-api -e BROWSER_DATABASE_URL "$BACKEND_TEST_IMAGE"
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent "$BROWSER_API_URL/api/v1/health"; then exit 0; fi
+            sleep 1
+          done
+          docker logs arena-browser-api
+          exit 1
+      - run: npm run test:browser
+      - run: npm run test:browser
+        env: { BROWSER_DIRECT_API: "true" }
+      - run: npm run test:browser
+        env: { BROWSER_USE_PAGES: "true" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          path: |
+            playwright-report
+            test-results
+            e2e/screenshots
+      - run: docker stop arena-browser-api
+        if: always()

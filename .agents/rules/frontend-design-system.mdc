@@ -1,0 +1,20 @@
+---
+description: Intentional Arena visual design, Tailwind tokens, responsive layouts, and readable copy
+globs: "**/*.{tsx,css,html}"
+alwaysApply: false
+---
+
+# Design system and visual quality
+
+- Ground design choices in Arena's audience and tasks: organizing competitions, reading standings, editing results, and watching tournaments. Follow the user's actual brief rather than imposing a generic visual style.
+- Before a substantial visual change, write a compact design plan covering palette, typography, layout, responsive behavior, and the primary user action; review it against the brief before implementation.
+- Define shared semantic tokens for colors, typography, spacing, radii, elevation, and motion in the Tailwind/CSS theme. Reuse tokens instead of scattering arbitrary values across components.
+- Choose a coherent type scale and readable sizes for body text, labels, scores, and errors. Use tabular numerals for changing scores/ranks and avoid decorative all-caps microtext as essential information.
+- Use hierarchy, alignment, and whitespace to make the next action clear. Borders, cards, numbering, icons, gradients, and motion must communicate meaning or serve the brief rather than decorate every section.
+- Build mobile-first layouts that handle long team names, many entrants, empty tournaments, and dense standings. Allow deliberate local scrolling for tables/brackets; avoid horizontal overflow of the whole page.
+- Keep layout CSS predictable: organize by component/feature, avoid selectors that fight each other, and do not hide specificity problems behind repeated overrides or `!important`.
+- Use shared button, field, badge, dialog, and notification variants. Define hover, focus, disabled, loading, selected, error, and success states consistently.
+- Use short user-facing copy that names the action: 'Save result', 'Start tournament', or 'Confirm reset'. Use the same vocabulary across buttons, confirmations, and success messages.
+- Give empty states a useful next action and errors a concrete recovery path. Never invent tournament data, fake success states, or fabricated usage statistics to fill a design.
+- Use motion sparingly to explain state changes. Respect reduced-motion preferences; essential content must never depend on animation.
+- Review actual browser screenshots at narrow and wide viewports after visual changes and correct clipping, crowding, contrast, and hierarchy issues before completion.

@@ -1,0 +1,20 @@
+---
+description: React feature boundaries, component composition, and hook discipline
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# React architecture
+
+- Target this project's React, Vite, React Router, TypeScript, and Tailwind stack. Do not introduce Next.js conventions, server components, or a new state library without a concrete requirement.
+- Organize by feature: authentication, tournament setup, tournament management, public viewing, and score editing. Keep each feature's components, hooks, models, and tests together.
+- Keep route pages responsible for route composition. Extract cohesive form, table, dialog, and workflow components rather than accumulating unrelated state and markup in one page.
+- Place genuinely shared primitives in a shared UI directory with documented props and supported variants. Prefer composition over many boolean mode flags; avoid premature generic frameworks.
+- Keep API transport, query/mutation hooks, pure presentation, and form draft logic separate. Components must not repeat raw request or CSRF plumbing.
+- Use functional components and hooks. Call hooks unconditionally at the top level; render must be pure and must not perform mutations, navigation, or network side effects.
+- Keep state close to its owner. Derive values from existing props/state rather than duplicating them in state; use context only for genuinely shared concerns.
+- Use effects to synchronize with external systems, with complete dependencies and cleanup. Handle user actions in event handlers; do not suppress hook dependency checks.
+- Use stable domain IDs as keys. Give unsaved entrants/groups stable draft IDs; do not use array positions or random IDs generated during rendering for editable/reorderable lists.
+- Document intentional behavior changes and test the desired requirements before implementation. Existing code and screenshots are evidence, not an automatic requirement to preserve behavior.
+
+Reference: https://react.dev/learn/you-might-not-need-an-effect

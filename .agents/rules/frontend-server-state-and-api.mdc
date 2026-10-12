@@ -1,0 +1,22 @@
+---
+description: Typed API access, TanStack Query cache ownership, authentication boundaries, and secure rendering
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Server state and API access
+
+- Centralize HTTP access in a typed API client using generated OpenAPI paths/models. Handle credentials, CSRF, status parsing, and safe API errors in that layer.
+- Use TanStack Query for server reads and mutations; keep unsaved form drafts in local state. Do not duplicate server caches in component state or trigger requests through render-time side effects.
+- Define reusable query-key factories. Include resource ID, public/private scope, and relevant filters; private cached data must never be reused across different signed-in users.
+- Invalidate or update affected detail, list, history, and session queries after successful mutations. Clear private caches and reset sensitive drafts when the signed-in identity changes or the user logs out.
+- Pass cancellation signals through reads where supported. Handle out-of-order responses; never let a response for a previous route/resource overwrite the current draft.
+- Choose freshness, polling, and retry behavior per use case. Do not repeatedly retry validation, authorization, or stale-revision failures; present the appropriate recovery action.
+- Treat the backend as authoritative for ownership, tournament rules, standings, revisions, and destructive correction impact. Client checks improve usability but are not authorization or persistence guarantees.
+- Do not optimistically apply destructive corrections, qualification, or progression changes without a tested reconciliation strategy. Use confirmed server state after these mutations.
+- Protect mutations with the required CSRF/session flow. Never store session tokens or provider secrets in localStorage, browser bundles, URLs, or logs.
+- Treat every Vite-exposed environment value as public. Use deliberate environment configuration and deployment API paths; never embed backend credentials in client configuration.
+- Render untrusted names, messages, and extracted text as text. Avoid raw HTML injection; sanitize explicitly if a requirement truly needs HTML. Validate navigation targets rather than allowing arbitrary redirects.
+- Handle session expiry with a clear sign-in path. UI visibility rules must never be described as enforcing backend access control.
+
+Reference: https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation

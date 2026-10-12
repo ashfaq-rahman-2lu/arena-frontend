@@ -1,0 +1,20 @@
+---
+description: Measured rendering performance, frontend verification, and CI enforcement
+globs: "**,.github/workflows/**"
+alwaysApply: false
+---
+
+# Performance and completion checks
+
+- Measure before introducing memoization, virtualization, or complex caching. Use `memo`, `useMemo`, and `useCallback` only for a concrete rendering/cost or identity requirement.
+- Avoid sequential independent reads and repeated full-list scans in hot render paths. Use pagination for large server collections and virtualization when measured list size/rendering cost warrants it.
+- Lazy-load substantial route features when it reduces initial bundle cost without harming navigation. Prefer explicit package imports and review dependency/bundle impact before adding a UI library.
+- Size images to avoid layout shifts, load offscreen images deliberately, and clean up upload previews. Keep fonts, media, and animations from blocking essential competition tasks.
+- Run the focused TDD tests, then `npm run typecheck`, `npm test`, and `npm run build` before completing implementation work.
+- Add TypeScript-aware linting, React hook checks, formatting, and relevant accessibility lint checks to frontend scripts/CI when introduced. Do not disable strictness or hide errors with broad suppressions.
+- For API contract changes, run `npm run api:generate` from the frontend repository root, verify both generated files, and run affected backend checks. Never manually patch generated source.
+- For user-facing changes, run affected browser/component tests and inspect mobile/desktop rendering, keyboard behavior, long content, and loading/error states.
+- Configure Playwright and component test commands before claiming those gates exist. Installing a package alone is not evidence that a test was discovered or executed.
+- Keep source readable through consistent formatting and cohesive files; do not compress whole components or the entire stylesheet into unreadable lines.
+- Report intentional behavior changes, executed red/green evidence, completed checks, and blockers honestly. Do not claim visual verification, accessibility compliance, or passing tests without the relevant evidence.
+- Prefer a coherent, usable implementation over adding every available React optimization or visual pattern. Design choices must follow the actual brief and user tasks.

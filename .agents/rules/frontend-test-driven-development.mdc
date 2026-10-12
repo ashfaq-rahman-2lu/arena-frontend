@@ -1,0 +1,23 @@
+---
+description: Mandatory test-first React development with behavioral component and browser tests
+globs: "**"
+alwaysApply: false
+---
+
+# Frontend test-driven development
+
+- Write or update a meaningful behavior test before implementing a feature, bug fix, or behavior change. Define expected behavior from agreed requirements; existing behavior is not automatically the desired contract.
+- RED: run the focused test and observe the expected missing-behavior failure. A dependency/configuration error, undiscovered test, or unrelated exception is not a valid red phase.
+- GREEN: implement the smallest coherent change that passes. REFACTOR: improve component boundaries and design while focused and affected tests stay green.
+- Record the executed red and green commands/results. Do not claim test-first work without executing the failing test before production implementation.
+- Use Vitest for pure draft transformations and state logic. Use React Testing Library with user-event and a browser-like test environment for meaningful component/hook interaction tests when introduced.
+- Configure component test discovery explicitly, including `.test.tsx`, before relying on it. The current Vitest include pattern covers `.test.ts` only; verify the intended test was actually executed.
+- Assert behavior through roles, labels, visible text, user interactions, and observable outcomes. Do not test private hook state, CSS class strings, implementation call sequences, or use large snapshots as the only proof.
+- Give each test its own query client and fixtures. Mock at the API/transport boundary; test loading, empty, error, success, authorization/session expiry, and stale-write states without live external calls.
+- Use Playwright for critical browser flows: sign-in, setup, public viewing, result editing, correction confirmation, and score suggestion handling. Configure a reproducible test runner and isolated backend data; never use production or shared development accounts for destructive tests.
+- Add regressions for late extraction responses, edited fields, null versus zero, duplicate submissions, dialog focus restoration, keyboard access, and validation errors where the changed workflow requires them.
+- For visual-only changes, define responsive/accessibility acceptance criteria before styling, add a meaningful visual regression test when suitable, and inspect narrow/wide browser screenshots afterward. Do not create artificial unit tests for arbitrary CSS values.
+- Every handwritten test callback/helper follows the explicit parameter and return type rule. Do not weaken, skip, or delete a failing test to get green; change expectations only for a documented requirement change.
+- Rules/documentation-only edits do not need synthetic component tests. These standards govern subsequent implementation; creating them does not authorize a frontend rewrite.
+
+Reference: https://testing-library.com/docs/guiding-principles/
