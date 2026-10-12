@@ -32,29 +32,45 @@ test("Pages proxy forwards cookies, CSRF, query and body to the fixed Render ori
   expect(await forwarded?.text()).toBe('{"homeScore":0,"awayScore":1}');
   expect(result.headers.get("cache-control")).toBe("no-store");
 });
-test("OAuth redirects and Set-Cookie pass through without following Google", async (): Promise<void> => {
-  let redirect: RequestRedirect | undefined;
-  const result = await proxyApi(
-    new Request("https://arena.pages.dev/api/v1/auth/google"),
-    { API_ORIGIN: "https://arena.onrender.com" },
-    async (request: Request): Promise<Response> => {
-      redirect = request.redirect;
-      return new Response(null, {
-        status: 302,
-        headers: {
-          Location: "https://accounts.google.com/authorize",
-          "Set-Cookie": "arena_oauth=signed; HttpOnly; Secure; SameSite=Lax",
-        },
-      });
-    },
-  );
-  expect(redirect).toBe("manual");
-  expect(result.status).toBe(302);
-  expect(result.headers.get("location")).toBe(
+test.each([
+  [
+    "/api/v1/auth/google",
     "https://accounts.google.com/authorize",
-  );
-  expect(result.headers.get("set-cookie")).toContain("arena_oauth=signed");
-});
+    "arena_oauth=signed; HttpOnly; Secure; SameSite=Lax",
+  ],
+  [
+    "/api/v1/auth/google/callback?state=state&code=code",
+    "https://arena.pages.dev/dashboard",
+    "arena_session=signed; HttpOnly; Secure; SameSite=Lax",
+  ],
+])(
+  "HTML OAuth redirects pass through for %s",
+  async (path: string, location: string, cookie: string): Promise<void> => {
+    let redirect: RequestRedirect | undefined;
+    const body = `<p>Found. Redirecting to ${location}</p>`;
+    const result = await proxyApi(
+      new Request(`https://arena.pages.dev${path}`),
+      { API_ORIGIN: "https://arena.onrender.com" },
+      async (request: Request): Promise<Response> => {
+        redirect = request.redirect;
+        return new Response(body, {
+          status: 302,
+          headers: {
+            Location: location,
+            "Set-Cookie": cookie,
+            "Content-Type": "text/html; charset=utf-8",
+          },
+        });
+      },
+    );
+    expect(redirect).toBe("manual");
+    expect(result.status).toBe(302);
+    expect(result.headers.get("location")).toBe(location);
+    expect(result.headers.get("set-cookie")).toBe(cookie);
+    expect(result.headers.get("cache-control")).toBe("no-store");
+    expect(await result.text()).toBe(body);
+  },
+);
 test("unconfigured or invalid upstreams fail safely without calling fetch", async (): Promise<void> => {
   for (const origin of [
     undefined,

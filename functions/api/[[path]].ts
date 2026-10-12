@@ -63,7 +63,11 @@ export async function proxyApi(
   };
   try {
     const upstream = await transport(new Request(target, init));
+    const isRedirect =
+      [301, 302, 303, 307, 308].includes(upstream.status) &&
+      upstream.headers.has("location");
     if (
+      !isRedirect &&
       incoming.pathname.startsWith("/api/v1/") &&
       upstream.headers.get("content-type")?.includes("text/html")
     ) {
