@@ -1556,6 +1556,11 @@ export interface operations {
             query: {
                 state: string;
                 code: string;
+                scope?: string;
+                authuser?: string;
+                prompt?: string;
+                hd?: string;
+                iss?: string;
             };
             header?: never;
             path?: never;
