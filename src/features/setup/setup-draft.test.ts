@@ -6,6 +6,8 @@ const draft: SetupDraft = {
   name: "League",
   game: "EFOOTBALL",
   format: "LEAGUE",
+  knockoutLegs: 1,
+  knockoutFinalLegs: 1,
   legs: 1,
   winPoints: "3",
   drawPoints: "1",
@@ -53,4 +55,25 @@ test("stale setup cannot be reapplied after the tournament starts", (): void => 
   const latest: Tournament = { ...tournament, status: "ACTIVE" };
   const result = validateSetupDraft(draft, latest);
   expect(result.valid).toBe(false);
+});
+test("knockout-only setup normalizes hidden round-robin settings even after incomplete league edits", (): void => {
+  expect(
+    validateSetupDraft({
+      ...draft,
+      format: "KNOCKOUT",
+      legs: 2,
+      winPoints: "",
+      drawPoints: "",
+      lossPoints: "",
+    }),
+  ).toMatchObject({
+    valid: true,
+    payload: {
+      legs: 1,
+      winPoints: 3,
+      drawPoints: 1,
+      lossPoints: 0,
+      groups: [],
+    },
+  });
 });

@@ -29,6 +29,7 @@ import { DraftNavigationBoundary } from "../../shared/hooks/use-dirty-draft";
 import { ConflictReview } from "../../shared/ui/conflict-review";
 import { Field, Modal, TeamMark, useToast } from "../../shared/ui/primitives";
 import {
+  aggregateDraft,
   resultPayload,
   ScoreValidationError,
   scoresFromMatch,
@@ -90,7 +91,7 @@ export function MatchEditor({
     null,
   );
   const [scores, setScores] = useState<DraftScores>((): DraftScores =>
-    scoresFromMatch(match),
+    scoresFromMatch(match, t),
   );
   const [initial, setInitial] = useState(JSON.stringify(scores));
   const [state, setState] = useState<SaveState>({ status: "editing" }),
@@ -103,6 +104,19 @@ export function MatchEditor({
     abort = useRef<AbortController | null>(null),
     url = useRef(""),
     busy = useRef(false);
+  const aggregate = aggregateDraft(base.t, base.match, scores);
+  const decisionHome = aggregate
+    ? base.t.entrants.find(
+        (e: Tournament["entrants"][number]): boolean =>
+          e.id === aggregate.tie.homeId,
+      )
+    : home;
+  const decisionAway = aggregate
+    ? base.t.entrants.find(
+        (e: Tournament["entrants"][number]): boolean =>
+          e.id === aggregate.tie.awayId,
+      )
+    : away;
   const saveMutation = useMutation({
     mutationFn: (body: ResultInput): Promise<Tournament> =>
       api.result(match.id, body),
@@ -142,7 +156,13 @@ export function MatchEditor({
   const change = (key: keyof DraftScores, value: string): void => {
     touched.current.add(key);
     setFieldError(null);
-    setScores((old: DraftScores): DraftScores => ({ ...old, [key]: value }));
+    setScores((old: DraftScores): DraftScores => ({
+      ...old,
+      [key]: value,
+      ...(aggregate && (key === "home" || key === "away") && old[key] !== value
+        ? { winner: "", homeTiebreak: "", awayTiebreak: "" }
+        : {}),
+    }));
     if (state.status !== "conflict") setState({ status: "editing" });
   };
   const apply = (suggestion: Suggestion, reversed?: boolean): void => {
@@ -164,6 +184,10 @@ export function MatchEditor({
         homeTiebreak: sides[0].tiebreak,
         awayTiebreak: sides[1].tiebreak,
       };
+    }
+    if (aggregate) {
+      values.homeTiebreak = null;
+      values.awayTiebreak = null;
     }
     setScores((old: DraftScores): DraftScores =>
       mergeSuggestedScores(old, values, touched.current),
@@ -276,7 +300,13 @@ export function MatchEditor({
     setState({ status: "previewing" });
     try {
       setFieldError(null);
-      const body = resultPayload(scores, base.match, base.t.revision, clear);
+      const body = resultPayload(
+        scores,
+        base.match,
+        base.t.revision,
+        clear,
+        base.t,
+      );
       const impact = await previewMutation.mutateAsync(body);
       if (!mounted.current) return;
       if (impact.requiresReset)
@@ -388,13 +418,28 @@ export function MatchEditor({
             </Field>
           </div>
         </div>
+        {aggregate && (
+          <p role="status">
+            Aggregate: {decisionHome?.name} {aggregate.homeAggregate} –{" "}
+            {aggregate.awayAggregate} {decisionAway?.name}.{" "}
+            {match.leg === 1
+              ? "Both legs must finish before a team advances."
+              : "No away-goals rule applies."}
+          </p>
+        )}
         {match.stage === "KNOCKOUT" &&
-          scores.home !== "" &&
-          scores.away !== "" &&
-          scores.home === scores.away && (
+          (aggregate
+            ? aggregate.canDecide
+            : scores.home !== "" &&
+              scores.away !== "" &&
+              scores.home === scores.away) && (
             <div className="tiebreak-box">
               <Field
-                label="Winner of the tied match"
+                label={
+                  aggregate
+                    ? "Winner of the tied aggregate"
+                    : "Winner of the tied match"
+                }
                 error={
                   fieldError?.field === "winner"
                     ? fieldError.message
@@ -409,13 +454,13 @@ export function MatchEditor({
                   }
                 >
                   <option value="">Choose winner</option>
-                  <option value={home.id}>{home.name}</option>
-                  <option value={away.id}>{away.name}</option>
+                  <option value={decisionHome?.id}>{decisionHome?.name}</option>
+                  <option value={decisionAway?.id}>{decisionAway?.name}</option>
                 </select>
               </Field>
               <div className="form-row">
                 <Field
-                  label={`${home.name} tiebreak (optional)`}
+                  label={`${decisionHome?.name} tiebreak (optional)`}
                   error={
                     fieldError?.field === "homeTiebreak"
                       ? fieldError.message
@@ -433,7 +478,7 @@ export function MatchEditor({
                   />
                 </Field>
                 <Field
-                  label={`${away.name} tiebreak (optional)`}
+                  label={`${decisionAway?.name} tiebreak (optional)`}
                   error={
                     fieldError?.field === "awayTiebreak"
                       ? fieldError.message
@@ -578,14 +623,14 @@ export function MatchEditor({
             local={scores}
             latest={
               state.latest
-                ? scoresFromMatch(state.latest.match)
+                ? scoresFromMatch(state.latest.match, state.latest.t)
                 : "Fixture unavailable"
             }
             error={state.error}
             onUseLatest={(): void => {
               if (!state.latest) return;
               setBase(state.latest);
-              const value = scoresFromMatch(state.latest.match);
+              const value = scoresFromMatch(state.latest.match, state.latest.t);
               setScores(value);
               setInitial(JSON.stringify(value));
               touched.current.clear();
@@ -605,6 +650,8 @@ export function MatchEditor({
                   scores,
                   state.latest.match,
                   state.latest.t.revision,
+                  false,
+                  state.latest.t,
                 );
                 setBase(state.latest);
                 setState({ status: "editing" });

@@ -1,5 +1,7 @@
 import type { Setup, Tournament } from "../../shared/api/arena-api";
 export interface DraftEntrant {
+  importSourceId?: string;
+  importEntrantId?: string;
   clientId: string;
   id?: string;
   name: string;
@@ -14,7 +16,9 @@ export interface DraftGroup {
 export interface SetupDraft {
   name: string;
   game: "EFOOTBALL" | "CODM";
-  format: "LEAGUE" | "WORLD_CUP";
+  format: Setup["format"];
+  knockoutLegs: 1 | 2;
+  knockoutFinalLegs: 1 | 2;
   legs: 1 | 2;
   winPoints: string;
   drawPoints: string;
@@ -48,13 +52,22 @@ export function validateSetupDraft(
     errors.name = "Use a tournament name from 2 to 120 characters.";
   if (latest && latest.status !== "DRAFT")
     errors.name = "This tournament has started. Setup is locked.";
+  if (draft.knockoutFinalLegs > draft.knockoutLegs)
+    errors.knockoutFinalLegs = "Final legs cannot exceed knockout legs.";
   const numeric: Record<"winPoints" | "drawPoints" | "lossPoints", number> = {
     winPoints: 0,
     drawPoints: 0,
     lossPoints: 0,
   };
   for (const key of ["winPoints", "drawPoints", "lossPoints"] as const) {
-    const value = parseInteger(draft[key], 0, 1000);
+    const value =
+      draft.format === "KNOCKOUT"
+        ? key === "winPoints"
+          ? 3
+          : key === "drawPoints"
+            ? 1
+            : 0
+        : parseInteger(draft[key], 0, 1000);
     if (value === null) errors[key] = "Enter a whole number from 0 to 1,000.";
     else numeric[key] = value;
   }
@@ -146,8 +159,12 @@ export function validateSetupDraft(
       name,
       game: draft.game,
       format: draft.format,
-      legs: draft.legs,
-      ...numeric,
+      legs: draft.format === "KNOCKOUT" ? 1 : draft.legs,
+      knockoutLegs: draft.knockoutLegs,
+      knockoutFinalLegs: draft.knockoutFinalLegs,
+      ...(draft.format === "KNOCKOUT"
+        ? { winPoints: 3, drawPoints: 1, lossPoints: 0 }
+        : numeric),
       entrants,
       groups,
     },
@@ -169,6 +186,8 @@ export function newSetupDraft(): SetupDraft {
     name: "",
     game: "EFOOTBALL",
     format: "LEAGUE",
+    knockoutLegs: 1,
+    knockoutFinalLegs: 1,
     legs: 1,
     winPoints: "3",
     drawPoints: "1",
@@ -181,7 +200,9 @@ export function draftFromTournament(t: Tournament): SetupDraft {
   return {
     name: t.name,
     game: t.game === "CODM" ? "CODM" : "EFOOTBALL",
-    format: t.format === "WORLD_CUP" ? "WORLD_CUP" : "LEAGUE",
+    format: t.format,
+    knockoutLegs: t.knockoutLegs === 2 ? 2 : 1,
+    knockoutFinalLegs: t.knockoutFinalLegs === 2 ? 2 : 1,
     legs: t.legs === 2 ? 2 : 1,
     winPoints: String(t.winPoints),
     drawPoints: String(t.drawPoints),

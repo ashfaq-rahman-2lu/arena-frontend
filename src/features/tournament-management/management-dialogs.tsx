@@ -10,6 +10,7 @@ export interface DialogRecoveryContext {
   conflicted: boolean;
   error: string;
   latest: Tournament;
+  onRefresh?: () => Promise<void>;
   onReapply: () => void;
   onLatest: () => void;
   signInPath?: string;
@@ -64,12 +65,6 @@ function requireValue<T>(value: T | null | undefined): T {
     );
   return value;
 }
-interface PairingModalProps {
-  recovery: DialogRecoveryContext;
-  t: Tournament;
-  onClose: () => void;
-  onSave: (pairs: [string, string][], byes: string[]) => Promise<void>;
-}
 interface TieModalProps {
   recovery: DialogRecoveryContext;
   t: Tournament;
@@ -85,140 +80,6 @@ interface RenameModalProps {
   entrantId: string;
   onClose: () => void;
   onSave: (n: string, a: string[]) => Promise<void>;
-}
-export function PairingModal({
-  t,
-  recovery,
-  onClose,
-  onSave,
-}: PairingModalProps): React.JSX.Element {
-  const e = requireValue(t.knockoutEligibility),
-    [byes, setByes] = useState<string[]>([]),
-    [pairs, setPairs] = useState<[string, string][]>(
-      Array.from(
-        { length: (e.entrantIds.length - e.byeCount) / 2 },
-        (): [string, string] => ["", ""],
-      ),
-    ),
-    [pending, setPending] = useState(false);
-  const used = [...byes, ...pairs.flat().filter(Boolean)],
-    name = (id: string): string | undefined =>
-      t.entrants.find((x: Entrant): boolean => x.id === id)?.name;
-  const valid =
-    used.length === e.entrantIds.length &&
-    new Set(used).size === used.length &&
-    byes.length === e.byeCount;
-  return (
-    <Modal
-      title={`Set knockout round ${e.round}`}
-      onClose={onClose}
-      pending={pending}
-      dirty={byes.length > 0 || pairs.flat().some(Boolean)}
-    >
-      <DialogFeedback
-        recovery={recovery}
-        local={{ pairs, byes, eligibility: e }}
-        latest={recovery.latest.knockoutEligibility}
-        valid={
-          valid &&
-          JSON.stringify(e) ===
-            JSON.stringify(recovery.latest.knockoutEligibility)
-        }
-      />
-      <p className="muted">
-        Every advancing team must appear once. You choose the opponents.
-      </p>
-      {e.byeCount > 0 && (
-        <div className="bye-picker">
-          <h3>Choose {e.byeCount} bye recipients</h3>
-          <p className="muted">
-            These teams advance without playing this round.
-          </p>
-          {e.entrantIds.map((id: string): React.JSX.Element => (
-            <label key={id}>
-              <input
-                type="checkbox"
-                checked={byes.includes(id)}
-                disabled={
-                  !byes.includes(id) &&
-                  (byes.length >= e.byeCount || pairs.flat().includes(id))
-                }
-                onChange={(
-                  event: React.ChangeEvent<HTMLInputElement, HTMLInputElement>,
-                ): void =>
-                  setByes((all: string[]): string[] =>
-                    event.target.checked
-                      ? [...all, id]
-                      : all.filter((x: string): boolean => x !== id),
-                  )
-                }
-              />
-              <span>{name(id)}</span>
-            </label>
-          ))}
-        </div>
-      )}
-      <div className="pairing-list">
-        {pairs.map((pair: [string, string], i: number): React.JSX.Element => (
-          <div className="pairing-row" key={i}>
-            <span className="mono muted">{i + 1}</span>
-            {pair.map((value: string, j: number): React.JSX.Element => (
-              <select
-                key={j}
-                aria-label={`Match ${i + 1} ${j === 0 ? "first" : "second"} team`}
-                value={value}
-                onChange={(
-                  event: React.ChangeEvent<
-                    HTMLSelectElement,
-                    HTMLSelectElement
-                  >,
-                ): void =>
-                  setPairs((all: [string, string][]): [string, string][] =>
-                    all.map(
-                      (p: [string, string], n: number): [string, string] =>
-                        n === i
-                          ? j === 0
-                            ? [event.target.value, p[1]]
-                            : [p[0], event.target.value]
-                          : p,
-                    ),
-                  )
-                }
-              >
-                <option value="">Choose team</option>
-                {e.entrantIds.map((id: string): React.JSX.Element => (
-                  <option
-                    key={id}
-                    value={id}
-                    disabled={used.includes(id) && value !== id}
-                  >
-                    {name(id)}
-                  </option>
-                ))}
-              </select>
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="modal-actions">
-        <ModalCancel disabled={pending} />
-        <button
-          className="button"
-          disabled={!valid || pending || recovery.conflicted}
-          onClick={async (): Promise<void> => {
-            setPending(true);
-            try {
-              await onSave(pairs, byes);
-            } finally {
-              setPending(false);
-            }
-          }}
-        >
-          Create round <ArrowRight size={16} />
-        </button>
-      </div>
-    </Modal>
-  );
 }
 export function TieModal({
   t,

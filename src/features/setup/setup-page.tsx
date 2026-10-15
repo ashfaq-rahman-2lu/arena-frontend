@@ -32,6 +32,7 @@ import {
   SetupDraft,
   validateSetupDraft,
 } from "./setup-draft";
+import { TeamImport } from "./team-import";
 interface SetupFormProps {
   initial: Tournament | null;
   ownerId: string;
@@ -222,7 +223,7 @@ function SetupForm({ initial, ownerId }: SetupFormProps): ReactElement {
             <fieldset>
               <legend>Competition format</legend>
               <div className="choice-grid">
-                {(["LEAGUE", "WORLD_CUP"] as const).map(
+                {(["LEAGUE", "WORLD_CUP", "KNOCKOUT"] as const).map(
                   (format: SetupDraft["format"]): ReactElement => (
                     <label
                       className={`choice ${draft.format === format ? "selected" : ""}`}
@@ -235,56 +236,96 @@ function SetupForm({ initial, ownerId }: SetupFormProps): ReactElement {
                         onChange={(): void => update("format", format)}
                       />
                       <strong>
-                        {format === "LEAGUE" ? "League" : "Groups + knockout"}
+                        {format === "LEAGUE"
+                          ? "League"
+                          : format === "KNOCKOUT"
+                            ? "Only knockout"
+                            : "Group + knockout"}
                       </strong>
                     </label>
                   ),
                 )}
               </div>
             </fieldset>
-            <div className="form-row">
-              <Field label="Round robin fixtures">
-                <select
-                  value={draft.legs}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                    update("legs", event.currentTarget.value === "2" ? 2 : 1)
-                  }
-                >
-                  <option value="1">Play each opponent once</option>
-                  <option value="2">Play each opponent twice</option>
-                </select>
-              </Field>
-              <div className="points-fields">
-                {(["winPoints", "drawPoints", "lossPoints"] as const).map(
-                  (
-                    key: "winPoints" | "drawPoints" | "lossPoints",
-                  ): ReactElement => (
-                    <Field
-                      key={key}
-                      label={
-                        key === "winPoints"
-                          ? "Win"
-                          : key === "drawPoints"
-                            ? "Draw"
-                            : "Loss"
-                      }
-                      error={errors[key]}
-                    >
-                      <input
-                        id={key}
-                        type="number"
-                        min={0}
-                        max={1000}
-                        value={draft[key]}
-                        onChange={(
-                          event: ChangeEvent<HTMLInputElement>,
-                        ): void => update(key, event.currentTarget.value)}
-                      />
-                    </Field>
-                  ),
-                )}
+            {draft.format !== "KNOCKOUT" && (
+              <div className="form-row">
+                <Field label="Round robin fixtures">
+                  <select
+                    value={draft.legs}
+                    onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                      update("legs", event.currentTarget.value === "2" ? 2 : 1)
+                    }
+                  >
+                    <option value="1">Play each opponent once</option>
+                    <option value="2">Play each opponent twice</option>
+                  </select>
+                </Field>
+                <div className="points-fields">
+                  {(["winPoints", "drawPoints", "lossPoints"] as const).map(
+                    (
+                      key: "winPoints" | "drawPoints" | "lossPoints",
+                    ): ReactElement => (
+                      <Field
+                        key={key}
+                        label={
+                          key === "winPoints"
+                            ? "Win"
+                            : key === "drawPoints"
+                              ? "Draw"
+                              : "Loss"
+                        }
+                        error={errors[key]}
+                      >
+                        <input
+                          id={key}
+                          type="number"
+                          min={0}
+                          max={1000}
+                          value={draft[key]}
+                          onChange={(
+                            event: ChangeEvent<HTMLInputElement>,
+                          ): void => update(key, event.currentTarget.value)}
+                        />
+                      </Field>
+                    ),
+                  )}
+                </div>
               </div>
-            </div>
+            )}
+            {draft.format !== "LEAGUE" && (
+              <div className="form-row">
+                <Field label="Knockout legs">
+                  <select
+                    value={draft.knockoutLegs}
+                    onChange={(event: ChangeEvent<HTMLSelectElement>): void => {
+                      const legs = event.currentTarget.value === "2" ? 2 : 1;
+                      update("knockoutLegs", legs);
+                      if (legs === 1) update("knockoutFinalLegs", 1);
+                    }}
+                  >
+                    <option value="1">One match per tie</option>
+                    <option value="2">Two legs per tie</option>
+                  </select>
+                </Field>
+                <Field label="Final legs" error={errors.knockoutFinalLegs}>
+                  <select
+                    value={draft.knockoutFinalLegs}
+                    disabled={draft.knockoutLegs === 1}
+                    onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                      update(
+                        "knockoutFinalLegs",
+                        event.currentTarget.value === "2" ? 2 : 1,
+                      )
+                    }
+                  >
+                    <option value="1">Single-match final</option>
+                    {draft.knockoutLegs === 2 && (
+                      <option value="2">Two-leg final</option>
+                    )}
+                  </select>
+                </Field>
+              </div>
+            )}
           </section>
           <section className="panel">
             <h2>Bring your squad</h2>
@@ -362,6 +403,16 @@ function SetupForm({ initial, ownerId }: SetupFormProps): ReactElement {
             >
               <Plus aria-hidden="true" size={15} /> Add team
             </button>
+            {!initial && (
+              <TeamImport
+                ownerId={ownerId}
+                entrants={draft.entrants}
+                disabled={mutation.isPending}
+                onImport={(entries: DraftEntrant[]): void =>
+                  update("entrants", entries)
+                }
+              />
+            )}
             <details className="bulk-import">
               <summary>Add several teams at once</summary>
               <Field label="One team name per line">
@@ -585,15 +636,20 @@ function SetupForm({ initial, ownerId }: SetupFormProps): ReactElement {
           <h3>{draft.name || "The next rivalry"}</h3>
           <p>
             {draft.entrants.length} teams ·{" "}
-            {draft.format === "LEAGUE" ? "League" : "Groups + knockout"}
+            {draft.format === "LEAGUE"
+              ? "League"
+              : draft.format === "KNOCKOUT"
+                ? "Only knockout"
+                : "Group + knockout"}
           </p>
           <p>
             Fixtures are flexible. Play any match in the active stage, in any
             order.
           </p>
           <p>
-            Once you start, teams and competition rules are locked. Results can
-            still be corrected.
+            Competition rules lock when you start. League teams may join any
+            time; group teams may join before qualification. Only-knockout teams
+            lock at start.
           </p>
         </aside>
       </form>

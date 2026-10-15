@@ -1,6 +1,7 @@
 import type { Match, Tournament } from "../shared/api/arena-api";
 export const match: Match = {
   id: "match-id",
+  knockoutTieId: null,
   stage: "LEAGUE",
   scope: "LEAGUE",
   round: 1,
@@ -23,6 +24,9 @@ export const tournament: Tournament = {
   status: "ACTIVE",
   currentStage: "LEAGUE",
   revision: 1,
+  knockoutLegs: 1,
+  knockoutFinalLegs: 1,
+  knockoutTies: [],
   legs: 1,
   winPoints: 3,
   drawPoints: 1,

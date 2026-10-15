@@ -2951,3 +2951,91 @@ h3 {
     flex-wrap: wrap;
   }
 }
+
+/* Tournament editing and knockout ties share the existing Arena palette. */
+.tournament-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 24px;
+}
+.tournament-tools + .champion-banner {
+  margin-top: 20px;
+}
+.import-team-list {
+  display: grid;
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 16px 0;
+}
+.import-team-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.import-team-list input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+}
+.new-team-row {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.bracket-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.bracket-slot > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.bracket-slot > button {
+  flex: 0 0 auto;
+}
+.knockout-tie {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.knockout-tie h4,
+.knockout-tie p {
+  overflow-wrap: anywhere;
+}
+.knockout-tie h4 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+.knockout-tie p {
+  color: var(--muted);
+  font-size: 0.875rem;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+.knockout-tie .bracket-match > span {
+  overflow-wrap: anywhere;
+}
+.knockout-grid > .knockout-round {
+  min-width: 0;
+}
+.modal fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .tournament-tools > .button {
+    flex: 1 1 auto;
+  }
+  .bracket-slot {
+    flex-wrap: wrap;
+  }
+  .bracket-slot > span {
+    flex-basis: 100%;
+  }
+}

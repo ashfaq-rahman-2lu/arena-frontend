@@ -13,6 +13,14 @@ export type Impact = components["schemas"]["CorrectionImpact"];
 export type Suggestion = components["schemas"]["ExtractionSuggestion"];
 export type TournamentPage = components["schemas"]["TournamentPage"];
 export type HistoryPage = components["schemas"]["HistoryPage"];
+export type EntrantPage = components["schemas"]["EntrantPage"];
+export type ImportEntrant = components["schemas"]["ImportEntrant"];
+export type EntrantsAddition = components["schemas"]["EntrantsAddition"];
+export type DrawPreview = components["schemas"]["DrawPreview"];
+export type PairingOptions = Partial<
+  Pick<components["schemas"]["PairingInput"], "method" | "drawToken" | "slots">
+>;
+export type KnockoutTie = components["schemas"]["KnockoutTieView"];
 export type FixturePage = components["schemas"]["FixturePage"];
 export type TournamentFilters = {
   page: number;
@@ -136,6 +144,22 @@ export interface ArenaApi {
   get: (id: string, signal?: AbortSignal) => Promise<Tournament>;
   public: (publicId: string, signal?: AbortSignal) => Promise<Tournament>;
   create: (body: Setup) => Promise<Tournament>;
+  renameTournament: (
+    id: string,
+    name: string,
+    expectedRevision: number,
+  ) => Promise<Tournament>;
+  addEntrants: (id: string, body: EntrantsAddition) => Promise<Tournament>;
+  entrants: (
+    id: string,
+    page: number,
+    signal?: AbortSignal,
+  ) => Promise<EntrantPage>;
+  draw: (
+    id: string,
+    byes: string[],
+    expectedRevision: number,
+  ) => Promise<DrawPreview>;
   update: (id: string, body: SetupUpdate) => Promise<Tournament>;
   preview: (
     id: string,
@@ -164,6 +188,7 @@ export interface ArenaApi {
     pairs: [string, string][],
     byes: string[],
     expectedRevision: number,
+    options?: PairingOptions,
   ) => Promise<Tournament>;
   impact: (matchId: string, body: ResultInput) => Promise<Impact>;
   result: (matchId: string, body: ResultInput) => Promise<Tournament>;
@@ -308,6 +333,46 @@ export function createArenaApi(
       ),
     create: (body: Setup): Promise<Tournament> =>
       unwrap(client.POST("/api/v1/tournaments", { body })),
+    renameTournament: (
+      id: string,
+      name: string,
+      expectedRevision: number,
+    ): Promise<Tournament> =>
+      unwrap(
+        client.PATCH("/api/v1/tournaments/{id}/name", {
+          params: { path: { id } },
+          body: { name, expectedRevision },
+        }),
+      ),
+    addEntrants: (id: string, body: EntrantsAddition): Promise<Tournament> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/entrants", {
+          params: { path: { id } },
+          body,
+        }),
+      ),
+    entrants: (
+      id: string,
+      page: number,
+      signal?: AbortSignal,
+    ): Promise<EntrantPage> =>
+      unwrap(
+        client.GET("/api/v1/tournaments/{id}/entrants", {
+          params: { path: { id }, query: { page, limit: 100 } },
+          signal,
+        }),
+      ),
+    draw: (
+      id: string,
+      byes: string[],
+      expectedRevision: number,
+    ): Promise<DrawPreview> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/rounds/draw-preview", {
+          params: { path: { id } },
+          body: { byes, expectedRevision },
+        }),
+      ),
     update: (
       id: string,
       body: Setup & {
@@ -382,11 +447,12 @@ export function createArenaApi(
       pairs: [string, string][],
       byes: string[],
       expectedRevision: number,
+      options?: PairingOptions,
     ): Promise<Tournament> =>
       unwrap(
         client.POST("/api/v1/tournaments/{id}/rounds", {
           params: { path: { id } },
-          body: { pairs, byes, expectedRevision },
+          body: { pairs, byes, expectedRevision, method: "MANUAL", ...options },
         }),
       ),
     impact: (

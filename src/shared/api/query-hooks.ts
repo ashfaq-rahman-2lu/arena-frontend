@@ -91,6 +91,9 @@ export function useTournamentMutation(
       await Promise.all([
         cache.invalidateQueries({ queryKey: queryKeys.private(ownerId) }),
         cache.invalidateQueries({ queryKey: ["session"] }),
+        cache.invalidateQueries({
+          queryKey: queryKeys.public(tournament.publicId),
+        }),
       ]);
     },
   });

@@ -175,7 +175,7 @@ export function Home(): React.JSX.Element {
               icon: Layers3,
               no: "01",
               title: "Pick your format.",
-              text: "A full round robin or groups into knockout. Build the competition your way.",
+              text: "League, group + knockout, or only knockout. Build the competition your way.",
             },
             {
               icon: ScanLine,

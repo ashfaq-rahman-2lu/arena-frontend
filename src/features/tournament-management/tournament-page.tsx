@@ -1,3 +1,7 @@
+import { TournamentTools } from "./tournament-tools";
+import { KnockoutBoard } from "./knockout-board";
+import { KnockoutPairing } from "./knockout-pairing";
+import type { PairingOptions } from "../../shared/api/arena-api";
 interface TournamentPageProps {
   admin?: boolean;
 }
@@ -48,7 +52,6 @@ import {
 import {
   DialogFeedback,
   DialogRecoveryContext,
-  PairingModal,
   RenameModal,
   TieModal,
 } from "./management-dialogs";
@@ -127,6 +130,9 @@ export function TournamentPage({
     void Promise.all([
       cache.invalidateQueries({ queryKey: queryKeys.private(ownerId) }),
       cache.invalidateQueries({ queryKey: ["session"] }),
+      cache.invalidateQueries({
+        queryKey: queryKeys.public(tournament.publicId),
+      }),
     ]).catch((error: unknown): void => toast(errorMessage(error), true));
   };
   const lock = useRef(false);
@@ -385,6 +391,10 @@ export function TournamentPage({
         ? `/auth/login?returnTo=${encodeURIComponent(`/manage/${t.id}`)}`
         : undefined,
     latest: t,
+    onRefresh: async (): Promise<void> => {
+      setConflicted(true);
+      await query.refetch();
+    },
     onReapply: (): void => {
       setDialogRevision(t.revision);
       setConflicted(false);
@@ -497,7 +507,11 @@ export function TournamentPage({
           <div className="eyebrow">
             {t.game === "EFOOTBALL" ? "eFOOTBALL" : "CALL OF DUTY: MOBILE"}{" "}
             <span>/</span>{" "}
-            {t.format === "LEAGUE" ? "ROUND ROBIN LEAGUE" : "GROUPS + KNOCKOUT"}
+            {t.format === "LEAGUE"
+              ? "ROUND ROBIN LEAGUE"
+              : t.format === "KNOCKOUT"
+                ? "ONLY KNOCKOUT"
+                : "GROUP + KNOCKOUT"}
           </div>
           <h1>{t.name}</h1>
           <div className="tournament-meta">
@@ -521,6 +535,14 @@ export function TournamentPage({
           )}
         </div>
       </div>
+      {admin && (
+        <TournamentTools
+          key={`${ownerId}:${t.id}`}
+          t={t}
+          ownerId={ownerId}
+          onSaved={saved}
+        />
+      )}
       {champion && (
         <div className="champion-banner">
           <Trophy size={34} />
@@ -636,7 +658,7 @@ export function TournamentPage({
             )}
           </div>
         )}
-      {admin && t.knockoutEligibility && (
+      {admin && t.knockoutEligibility && t.rounds[0]?.method !== "FIXED" && (
         <div className="stage-banner">
           <div>
             <h3>Build knockout round {t.knockoutEligibility.round}.</h3>
@@ -674,8 +696,8 @@ export function TournamentPage({
         {[
           ["overview", "Overview"],
           ["fixtures", "Fixtures"],
-          ["standings", "Standings"],
-          ...(t.format === "WORLD_CUP" ? [["knockout", "Knockout"]] : []),
+          ...(t.format !== "KNOCKOUT" ? [["standings", "Standings"]] : []),
+          ...(t.format !== "LEAGUE" ? [["knockout", "Knockout"]] : []),
           ["teams", "Teams"],
           ...(admin ? [["history", "Revision history"]] : []),
         ].map(([value, label]: string[]): React.JSX.Element => (
@@ -726,18 +748,26 @@ export function TournamentPage({
       >
         {tab === "overview" && (
           <div className="overview-grid">
-            <div>{renderStandings()}</div>
+            <div>
+              {t.format === "KNOCKOUT" ? (
+                <KnockoutBoard t={t} admin={admin} onSelect={setSelected} />
+              ) : (
+                renderStandings()
+              )}
+            </div>
             <aside className="panel competition-note">
               <div className="eyebrow">THE GAME PLAN</div>
               <h3>
-                {t.format === "LEAGUE"
-                  ? "Every opponent. Every point."
-                  : "Win your place. Then survive."}
+                {t.format === "KNOCKOUT"
+                  ? "Win the tie. Advance to the final."
+                  : t.format === "LEAGUE"
+                    ? "Every opponent. Every point."
+                    : "Win your place. Then survive."}
               </h3>
               <p>
-                {t.legs === 1 ? "Single" : "Double"} round robin
-                {t.format === "WORLD_CUP" ? " within each group" : ""}. Matches
-                can be played in any order within the active stage.
+                {t.format === "KNOCKOUT"
+                  ? `${t.knockoutLegs} match(es) per knockout tie; ${t.knockoutFinalLegs} in the final. Each round finishes before the next begins.`
+                  : `${t.legs === 1 ? "Single" : "Double"} round robin${t.format === "WORLD_CUP" ? " within each group" : ""}. Matches can be played in any order within the active stage.`}
               </p>
               {t.groups.length > 0 && (
                 <div className="group-summary">
@@ -840,90 +870,7 @@ export function TournamentPage({
           </section>
         )}
         {tab === "knockout" && (
-          <div className="knockout-grid">
-            {t.rounds.length ? (
-              t.rounds.map(
-                (r: components["schemas"]["Round"]): React.JSX.Element => (
-                  <section className="panel knockout-round" key={r.id}>
-                    <div className="panel-head">
-                      <h3>
-                        {t.matches.filter(
-                          (m: Match): boolean =>
-                            m.stage === "KNOCKOUT" && m.round === r.number,
-                        ).length === 1 && !r.byes.length
-                          ? "Final"
-                          : `Round ${r.number}`}
-                      </h3>
-                      <span className="mono muted">SINGLE ELIMINATION</span>
-                    </div>
-                    {t.matches
-                      .filter(
-                        (m: Match): boolean =>
-                          m.stage === "KNOCKOUT" && m.round === r.number,
-                      )
-                      .map((m: Match): React.JSX.Element => (
-                        <button
-                          className="bracket-match"
-                          key={m.id}
-                          disabled={!admin}
-                          onClick={(): void => setSelected(m)}
-                        >
-                          {[m.homeId, m.awayId].map(
-                            (eid: string, i: number): React.JSX.Element => (
-                              <span
-                                className={m.winnerId === eid ? "winner" : ""}
-                                key={eid}
-                              >
-                                <TeamMark
-                                  name={name(eid)}
-                                  index={t.entrants.findIndex(
-                                    (e: Entrant): boolean => e.id === eid,
-                                  )}
-                                />
-                                <strong>{name(eid)}</strong>
-                                <b>
-                                  {(i === 0 ? m.homeScore : m.awayScore) ?? "—"}
-                                  {m.homeTiebreak !== null && (
-                                    <small>
-                                      {" "}
-                                      (
-                                      {i === 0
-                                        ? m.homeTiebreak
-                                        : m.awayTiebreak}
-                                      )
-                                    </small>
-                                  )}
-                                </b>
-                                {m.winnerId === eid && <Check size={15} />}
-                              </span>
-                            ),
-                          )}
-                        </button>
-                      ))}
-                    {r.byes.map(
-                      (b: { entrantId: string }): React.JSX.Element => (
-                        <div className="bye-row" key={b.entrantId}>
-                          <TeamMark name={name(b.entrantId)} />
-                          <strong>{name(b.entrantId)}</strong>
-                          <span className="badge neutral">BYE · ADVANCES</span>
-                        </div>
-                      ),
-                    )}
-                  </section>
-                ),
-              )
-            ) : (
-              <div className="empty">
-                <Trophy size={34} />
-                <h2>The road to the final starts here.</h2>
-                <p>
-                  {t.qualification
-                    ? "The admin will choose the first knockout pairings."
-                    : "Knockout fixtures appear after group qualification is confirmed."}
-                </p>
-              </div>
-            )}
-          </div>
+          <KnockoutBoard t={t} admin={admin} onSelect={setSelected} />
         )}
         {tab === "teams" && (
           <div className="team-grid">
@@ -1082,8 +1029,9 @@ export function TournamentPage({
             </p>
           )}
           <p className="muted">
-            These matchups are flexible. Your players can play them in any
-            order.
+            {t.format === "KNOCKOUT"
+              ? "Start the tournament, then choose the opening pairings and any byes. The participant list locks at start."
+              : "These matchups are flexible. Your players can play them in any order."}
           </p>
           {preview.isPending ? (
             <Spinner />
@@ -1203,17 +1151,24 @@ export function TournamentPage({
         </Modal>
       )}
       {showPairing && dialogBase?.knockoutEligibility && (
-        <PairingModal
+        <KnockoutPairing
           t={dialogBase}
           recovery={recovery}
           onClose={(): void => setShowPairing(false)}
           onSave={async (
             pairs: [string, string][],
             byes: string[],
+            options: PairingOptions,
           ): Promise<void> => {
             const succeeded = await action(
               (): Promise<Tournament> =>
-                api.pair(t.id, pairs, byes, dialogRevision ?? t.revision),
+                api.pair(
+                  t.id,
+                  pairs,
+                  byes,
+                  dialogRevision ?? t.revision,
+                  options,
+                ),
               "Knockout round created",
             );
             if (succeeded) setShowPairing(false);

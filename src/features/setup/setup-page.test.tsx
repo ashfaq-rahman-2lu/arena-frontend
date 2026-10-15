@@ -94,3 +94,35 @@ test("background status changes keep a dirty setup draft available for review", 
   );
   client.clear();
 });
+test("only knockout hides round robin settings and offers independent final settings", async (): Promise<void> => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  client.setQueryData(["session"], {
+    csrf: "csrf",
+    user: {
+      id: "owner",
+      name: "Admin",
+      email: "admin@example.test",
+      hasPassword: true,
+      googleLinked: false,
+    },
+    googleEnabled: false,
+  });
+  const router = createMemoryRouter(
+    [{ path: "/new", element: <SetupPage /> }],
+    { initialEntries: ["/new"] },
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  await userEvent.click(screen.getByRole("radio", { name: "Only knockout" }));
+  expect(screen.queryByLabelText("Points for a win")).not.toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText("Knockout legs"), "2");
+  expect(screen.getByLabelText("Final legs")).toHaveValue("1");
+  await userEvent.selectOptions(screen.getByLabelText("Final legs"), "2");
+  expect(screen.getByLabelText("Final legs")).toHaveValue("2");
+  client.clear();
+});

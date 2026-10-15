@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, Page, test, TestInfo } from "@playwright/test";
-import { completeCupFixture } from "./api-fixture";
+import { completeCupFixture, response } from "./api-fixture";
 interface BrowserFixture {
   page: Page;
 }
@@ -185,7 +185,7 @@ test("cup setup and a destructive correction require reviewed reset confirmation
   await page
     .getByRole("textbox", { name: "Tournament name" })
     .fill(`Browser cup ${info.project.name}`);
-  await page.getByRole("radio", { name: "Groups + knockout" }).check();
+  await page.getByRole("radio", { name: "Group + knockout" }).check();
   await page.getByRole("button", { name: "Add team", exact: true }).click();
   await page.getByRole("button", { name: "Add team", exact: true }).click();
   const names = ["Alpha", "Beta", "Gamma", "Delta"];
@@ -249,5 +249,242 @@ test("cup setup and a destructive correction require reviewed reset confirmation
   await expect(
     page.getByText("Progression reset", { exact: true }),
   ).toBeVisible();
+  await checkAccessibility(page);
+});
+
+test("knockout-only import, rename, fixed bracket and two-leg aggregate decisions", async ({
+  page,
+}: BrowserFixture, info: TestInfo): Promise<void> => {
+  await signIn(page);
+  await page.goto("/new");
+  await page
+    .getByRole("textbox", { name: "Tournament name" })
+    .fill(`Knockout browser ${info.project.name}`);
+  await page.getByRole("radio", { name: "Only knockout" }).check();
+  await page.getByLabel("Knockout legs").selectOption("2");
+  await expect(page.getByLabel("Final legs")).toHaveValue("1");
+  await page
+    .getByText("Import teams from your tournament", { exact: true })
+    .click();
+  const sourcePicker = page.getByRole("combobox", {
+    name: "Source tournament",
+    exact: true,
+  });
+  await expect(sourcePicker).toBeEnabled();
+  while (
+    (await sourcePicker
+      .getByRole("option", { name: /^Browser draft / })
+      .count()) === 0
+  ) {
+    await page
+      .getByRole("navigation", { name: "Source tournaments pagination" })
+      .getByRole("button", { name: "Next", exact: true })
+      .click();
+    await expect(sourcePicker).toBeEnabled();
+  }
+  const sourceName = await sourcePicker
+    .getByRole("option", { name: /^Browser draft / })
+    .first()
+    .textContent();
+  if (!sourceName) throw new Error("Missing source tournament");
+  await sourcePicker.selectOption({ label: sourceName });
+  await page.getByRole("button", { name: "Select all teams" }).click();
+  await page.getByRole("button", { name: "Import selected teams" }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Team 1 name", exact: true }),
+  ).toHaveValue("Alpha");
+  await expect(
+    page.getByLabel("Source tournament", { exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Add team", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Team 3 name", exact: true })
+    .fill("Gamma");
+  await page.getByRole("button", { name: "Add team", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Team 4 name", exact: true })
+    .fill("Delta");
+  await page.getByRole("button", { name: /Save & review fixtures/ }).click();
+  await expect(page).toHaveURL(/\/manage\//);
+  await page.getByRole("button", { name: /Review & start/ }).click();
+  await page
+    .getByRole("button", { name: "Start tournament", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Add teams", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: "Standings" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit tournament name" }).click();
+  await page
+    .getByRole("textbox", { name: "Tournament name" })
+    .fill(`Renamed knockout ${info.project.name}`);
+  await page.getByRole("button", { name: "Save name" }).click();
+  await expect(
+    page.getByRole("heading", {
+      name: `Renamed knockout ${info.project.name}`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Choose pairings/ }).click();
+  await page.getByLabel("Pairing method").selectOption("FIXED");
+  await page
+    .getByRole("combobox", { name: "Match 1 first team" })
+    .selectOption({ label: "Alpha" });
+  await page
+    .getByRole("combobox", { name: "Match 1 second team" })
+    .selectOption({ label: "Beta" });
+  await page
+    .getByRole("combobox", { name: "Match 2 first team" })
+    .selectOption({ label: "Gamma" });
+  await page
+    .getByRole("combobox", { name: "Match 2 second team" })
+    .selectOption({ label: "Delta" });
+  await page.getByRole("button", { name: "Review bracket" }).click();
+  await checkAccessibility(page);
+  await page.getByRole("button", { name: "Create round", exact: true }).click();
+  await page.getByRole("tab", { name: "Knockout", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Edit Alpha vs Beta, leg 1", exact: true })
+    .click();
+  await page.getByLabel("Alpha score").fill("2");
+  await page.getByLabel("Beta score").fill("0");
+  await page.getByRole("button", { name: "Save result", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Edit Beta vs Alpha, leg 2", exact: true })
+    .click();
+  await page.getByLabel("Beta score").fill("2");
+  await page.getByLabel("Alpha score").fill("0");
+  await page
+    .getByLabel("Winner of the tied aggregate")
+    .selectOption({ label: "Alpha" });
+  await checkAccessibility(page);
+  await page.screenshot({
+    path: `e2e/screenshots/${info.project.name}-aggregate-decision.png`,
+    fullPage: false,
+  });
+  await page.getByRole("button", { name: "Save result", exact: true }).click();
+  await expect(
+    page.getByText("Two legs · Advances: Alpha", { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: `e2e/screenshots/${info.project.name}-knockout.png`,
+    fullPage: false,
+  });
+  expect(
+    await page.evaluate(
+      (): boolean => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("ongoing league name and multiple team additions preserve existing fixtures", async ({
+  page,
+}: BrowserFixture, info: TestInfo): Promise<void> => {
+  await signIn(page);
+  await page.goto("/new");
+  await page
+    .getByRole("textbox", { name: "Tournament name" })
+    .fill(`Expansion ${info.project.name}`);
+  await page
+    .getByRole("textbox", { name: "Team 1 name", exact: true })
+    .fill("Original Alpha");
+  await page
+    .getByRole("textbox", { name: "Team 2 name", exact: true })
+    .fill("Original Beta");
+  await page.getByRole("button", { name: /Save & review fixtures/ }).click();
+  await expect(page).toHaveURL(/\/manage\//);
+  await page.getByRole("button", { name: /Review & start/ }).click();
+  await page
+    .getByRole("button", { name: "Start tournament", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add teams", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "New team 1 name", exact: true })
+    .fill("Late Gamma");
+  await page.getByRole("button", { name: "Add another team" }).click();
+  await page
+    .getByRole("textbox", { name: "New team 2 name", exact: true })
+    .fill("Late Delta");
+  await expect(
+    page.getByText("2 new teams · 5 new matches", { exact: true }),
+  ).toBeVisible();
+  await checkAccessibility(page);
+  await page
+    .getByRole("button", { name: "Add teams and schedule matches" })
+    .click();
+  await page.getByRole("tab", { name: "Fixtures", exact: true }).click();
+  await expect(page.locator(".fixture-row")).toHaveCount(6);
+  await page.screenshot({
+    path: `e2e/screenshots/${info.project.name}-expanded-league.png`,
+    fullPage: false,
+  });
+});
+
+test("256-team knockout remains readable in owner and public views", async ({
+  page,
+}: BrowserFixture, info: TestInfo): Promise<void> => {
+  await signIn(page);
+  const session = await response<import("../src/shared/api/arena-api").Session>(
+    await page.request.get("/api/v1/auth/session"),
+    "SessionView",
+  );
+  const headers = { "X-CSRF-Token": session.csrf };
+  let t = await response<import("../src/shared/api/arena-api").Tournament>(
+    await page.request.post("/api/v1/tournaments", {
+      headers,
+      data: {
+        name: `Large knockout ${info.project.name}`,
+        game: "EFOOTBALL",
+        format: "KNOCKOUT",
+        legs: 1,
+        knockoutLegs: 2,
+        knockoutFinalLegs: 1,
+        winPoints: 3,
+        drawPoints: 1,
+        lossPoints: 0,
+        groups: [],
+        entrants: Array.from(
+          { length: 256 },
+          (_: unknown, i: number): { name: string; aliases: string[] } => ({
+            name: `Team ${String(i).padStart(3, "0")} with a long competition name`,
+            aliases: [],
+          }),
+        ),
+      },
+    }),
+    "TournamentView",
+  );
+  t = await response<import("../src/shared/api/arena-api").Tournament>(
+    await page.request.post(`/api/v1/tournaments/${t.id}/start`, {
+      headers,
+      data: { expectedRevision: t.revision },
+    }),
+    "TournamentView",
+  );
+  const ids = t.entrants.map(
+    (e: import("../src/shared/api/arena-api").Entrant): string => e.id,
+  );
+  const pairs: [string, string][] = [];
+  for (let i = 0; i < ids.length; i += 2) pairs.push([ids[i], ids[i + 1]]);
+  t = await response<import("../src/shared/api/arena-api").Tournament>(
+    await page.request.post(`/api/v1/tournaments/${t.id}/rounds`, {
+      headers,
+      data: { expectedRevision: t.revision, pairs, byes: [] },
+    }),
+    "TournamentView",
+  );
+  await page.goto(`/manage/${t.id}?tab=knockout`);
+  await expect(page.locator(".knockout-tie")).toHaveCount(128);
+  expect(
+    await page.evaluate(
+      (): boolean => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `e2e/screenshots/${info.project.name}-large-knockout.png`,
+    fullPage: false,
+  });
+  await page.goto(`/t/${t.publicId}?tab=knockout`);
+  await expect(page.locator(".knockout-tie")).toHaveCount(128);
   await checkAccessibility(page);
 });

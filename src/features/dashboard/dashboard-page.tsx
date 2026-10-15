@@ -195,8 +195,12 @@ export function Dashboard(): React.JSX.Element {
                 <p>
                   {t.format === "LEAGUE"
                     ? "Round robin league"
-                    : "Groups + knockout"}{" "}
-                  · {t.legs === 2 ? "Double" : "Single"} round robin
+                    : t.format === "KNOCKOUT"
+                      ? "Only knockout"
+                      : "Group + knockout"}{" "}
+                  {t.format !== "KNOCKOUT" && (
+                    <>· {t.legs === 2 ? "Double" : "Single"} round robin</>
+                  )}
                 </p>
                 <div className="card-teams">
                   {t.entrantPreview.map(
