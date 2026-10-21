@@ -827,6 +827,7 @@ export interface components {
             tiebreak: number | null;
         };
         ExtractionSuggestion: {
+            /** @description Scores are assigned by template position: left is home, right is away. No team-name matching is performed. */
             matched: boolean;
             observedSides: components["schemas"]["ObservedSide"][];
             homeScore: number | null;
