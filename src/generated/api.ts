@@ -397,6 +397,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /**
+         * Extract scores and match stats for an eFootball tournament
+         * @description Only available when the match belongs to an EFOOTBALL tournament. Other games return 400 RULE_VIOLATION; manual result entry remains available.
+         */
         post: operations["MatchesController_extract"];
         delete?: never;
         options?: never;
@@ -826,6 +830,15 @@ export interface components {
             score: number | null;
             tiebreak: number | null;
         };
+        ExtractedMatchStat: {
+            /** @enum {string} */
+            key: "possession" | "shots" | "shotsOnTarget" | "fouls" | "offsides" | "cornerKicks" | "freeKicks" | "passes" | "successfulPasses" | "crosses" | "interceptions" | "tackles" | "saves";
+            label: string;
+            home: number | null;
+            away: number | null;
+            /** @enum {string} */
+            unit: "percent" | "count";
+        };
         ExtractionSuggestion: {
             /** @description Scores are assigned by template position: left is home, right is away. No team-name matching is performed. */
             matched: boolean;
@@ -834,6 +847,8 @@ export interface components {
             awayScore: number | null;
             homeTiebreak: number | null;
             awayTiebreak: number | null;
+            /** @description All thirteen match stat rows; unreadable cells are null. Suggestions only. */
+            stats?: components["schemas"]["ExtractedMatchStat"][];
             warnings: string[];
         };
         HealthView: {

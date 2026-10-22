@@ -92,6 +92,49 @@ export function safeApiError(error: unknown, status: number): ApiError {
   }
   return new ApiError(message, status, code);
 }
+type MatchStat = NonNullable<Suggestion["stats"]>[number];
+const statKeys: MatchStat["key"][] = [
+  "possession",
+  "shots",
+  "shotsOnTarget",
+  "fouls",
+  "offsides",
+  "cornerKicks",
+  "freeKicks",
+  "passes",
+  "successfulPasses",
+  "crosses",
+  "interceptions",
+  "tackles",
+  "saves",
+];
+function isMatchStat(value: unknown): value is MatchStat {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("key" in value) ||
+    !statKeys.some((key: MatchStat["key"]): boolean => key === value.key) ||
+    !("label" in value) ||
+    typeof value.label !== "string" ||
+    value.label.length === 0 ||
+    value.label.length > 50 ||
+    !("unit" in value) ||
+    (value.unit !== "percent" && value.unit !== "count") ||
+    (value.key === "possession") !== (value.unit === "percent")
+  )
+    return false;
+  const max = value.unit === "percent" ? 100 : 9999;
+  return ["home", "away"].every((side: string): boolean => {
+    const cell: unknown = Reflect.get(value, side);
+    return (
+      cell === null ||
+      (typeof cell === "number" &&
+        Number.isInteger(cell) &&
+        cell >= 0 &&
+        cell <= max)
+    );
+  });
+}
 function isSuggestion(value: unknown): value is Suggestion {
   if (!value || typeof value !== "object") return false;
   if (
@@ -115,6 +158,14 @@ function isSuggestion(value: unknown): value is Suggestion {
       item <= 2147483647);
   for (const name of ["homeScore", "awayScore", "homeTiebreak", "awayTiebreak"])
     if (!score(Reflect.get(value, name))) return false;
+  if ("stats" in value && value.stats !== undefined) {
+    if (!Array.isArray(value.stats) || value.stats.length > 13) return false;
+    const keys = new Set<string>();
+    for (const stat of value.stats) {
+      if (!isMatchStat(stat) || keys.has(stat.key)) return false;
+      keys.add(stat.key);
+    }
+  }
   return value.observedSides.every((side: unknown): boolean =>
     Boolean(
       side &&

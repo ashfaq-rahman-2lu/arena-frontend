@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  ArrowLeftRight,
   LoaderCircle,
   RotateCcw,
   ScanLine,
@@ -34,7 +35,12 @@ import {
   ScoreValidationError,
   scoresFromMatch,
 } from "./score-draft";
-import { DraftScores, mergeSuggestedScores } from "./suggestion-draft";
+import { ExtractedStats } from "./extracted-stats";
+import {
+  DraftScores,
+  mergeSuggestedScores,
+  swapDraftScores,
+} from "./suggestion-draft";
 export interface MatchEditorProps {
   t: Tournament;
   match: Match;
@@ -64,7 +70,7 @@ type SaveState =
 type ExtractionState =
   | { status: "idle" }
   | { status: "reading"; requestId: number }
-  | { status: "suggested"; suggestion: Suggestion }
+  | { status: "suggested"; suggestion: Suggestion; reversed: boolean }
   | { status: "failure"; error: string };
 interface ExtractionRequest {
   file: File;
@@ -94,6 +100,7 @@ export function MatchEditor({
     scoresFromMatch(match, t),
   );
   const [initial, setInitial] = useState(JSON.stringify(scores));
+  const [swapAnnouncement, setSwapAnnouncement] = useState("");
   const [state, setState] = useState<SaveState>({ status: "editing" }),
     [extraction, setExtraction] = useState<ExtractionState>({ status: "idle" }),
     [upload, setUpload] = useState<UploadDraft | null>(null),
@@ -165,6 +172,41 @@ export function MatchEditor({
     }));
     if (state.status !== "conflict") setState({ status: "editing" });
   };
+  const swapResults = (): void => {
+    if (
+      !home ||
+      !away ||
+      pending ||
+      busy.current ||
+      extraction.status === "reading"
+    )
+      return;
+    const next = swapDraftScores(scores, {
+      homeId: home.id,
+      awayId: away.id,
+      aggregate: aggregate !== null,
+    });
+    for (const key of [
+      "home",
+      "away",
+      "homeTiebreak",
+      "awayTiebreak",
+      "winner",
+    ] as const)
+      touched.current.add(key);
+    setScores(next);
+    setFieldError(null);
+    if (state.status !== "conflict") setState({ status: "editing" });
+    setExtraction((old: ExtractionState): ExtractionState =>
+      old.status === "suggested" ? { ...old, reversed: !old.reversed } : old,
+    );
+    setMapping((old: string): string =>
+      old === "" ? "" : old === "reverse" ? "normal" : "reverse",
+    );
+    setSwapAnnouncement(
+      `Results swapped. ${home.name}: ${next.home || "empty"}. ${away.name}: ${next.away || "empty"}.${aggregate ? " Review the aggregate decision." : " Review before saving."}`,
+    );
+  };
   const apply = (suggestion: Suggestion, reversed?: boolean): void => {
     let values = {
       home: suggestion.homeScore,
@@ -174,6 +216,9 @@ export function MatchEditor({
     };
     if (!suggestion.matched) {
       if (reversed === undefined) return;
+      setExtraction((old: ExtractionState): ExtractionState =>
+        old.status === "suggested" ? { ...old, reversed } : old,
+      );
       const sides = reversed
         ? [suggestion.observedSides[1], suggestion.observedSides[0]]
         : suggestion.observedSides;
@@ -214,6 +259,7 @@ export function MatchEditor({
     url.current = URL.createObjectURL(file);
     setUpload({ file, url: url.current });
     setExtraction({ status: "idle" });
+    setSwapAnnouncement("");
     setMapping("");
   };
   const read = async (): Promise<void> => {
@@ -235,7 +281,7 @@ export function MatchEditor({
         controller.signal.aborted
       )
         return;
-      setExtraction({ status: "suggested", suggestion });
+      setExtraction({ status: "suggested", suggestion, reversed: false });
       if (suggestion.matched) apply(suggestion);
     } catch (error: unknown) {
       if (
@@ -345,6 +391,14 @@ export function MatchEditor({
     );
   const suggestion =
     extraction.status === "suggested" ? extraction.suggestion : null;
+  const canSwap =
+    [scores.home, scores.away, scores.homeTiebreak, scores.awayTiebreak].some(
+      (value: string): boolean => value !== "",
+    ) ||
+    (suggestion?.stats ?? []).some(
+      (stat: NonNullable<Suggestion["stats"]>[number]): boolean =>
+        stat.home !== null || stat.away !== null,
+    );
   return (
     <Modal
       title="Make the result official"
@@ -417,6 +471,24 @@ export function MatchEditor({
               />
             </Field>
           </div>
+        </div>
+        <div className="swap-results">
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={swapResults}
+            disabled={!canSwap || pending || extraction.status === "reading"}
+          >
+            <ArrowLeftRight aria-hidden="true" size={16} /> Swap results
+          </button>
+          <p
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className={swapAnnouncement ? "" : "sr-only"}
+          >
+            {swapAnnouncement}
+          </p>
         </div>
         {aggregate && (
           <p role="status">
@@ -498,114 +570,138 @@ export function MatchEditor({
               </div>
             </div>
           )}
-        <div className="upload-section">
-          <h3>
-            <ScanLine aria-hidden="true" size={18} /> Have a scorecard?
-          </h3>
-          <p>Upload it to suggest scores, then review before saving.</p>
-          <label className="upload-drop">
-            <Upload aria-hidden="true" size={24} />
-            <span>{upload?.file.name ?? "Choose a scorecard image"}</span>
-            <small>JPEG, PNG or WebP · up to 10 MB</small>
-            <input
-              aria-label="Scorecard image"
-              type="file"
-              disabled={pending}
-              accept="image/jpeg,image/png,image/webp"
-              onChange={chooseFile}
-            />
-          </label>
-          {upload && (
-            <>
-              <img
-                className="scorecard-preview"
-                width={480}
-                height={180}
-                src={upload.url}
-                alt="Uploaded match scorecard"
+        {t.game === "EFOOTBALL" && (
+          <div className="upload-section">
+            <h3>
+              <ScanLine aria-hidden="true" size={18} /> Have a scorecard?
+            </h3>
+            <p>
+              Upload it to read scores and match stats, then review before
+              saving.
+            </p>
+            <label className="upload-drop">
+              <Upload aria-hidden="true" size={24} />
+              <span>{upload?.file.name ?? "Choose a scorecard image"}</span>
+              <small>JPEG, PNG or WebP · up to 10 MB</small>
+              <input
+                aria-label="Scorecard image"
+                type="file"
+                disabled={pending}
+                accept="image/jpeg,image/png,image/webp"
+                onChange={chooseFile}
               />
-              <button
-                type="button"
-                className="button secondary full"
-                disabled={pending || extraction.status === "reading"}
-                onClick={read}
-              >
-                {extraction.status === "reading" ? (
-                  <LoaderCircle aria-hidden="true" className="spin" size={17} />
-                ) : (
-                  <ScanLine aria-hidden="true" size={17} />
-                )}{" "}
-                {extraction.status === "reading"
-                  ? "Reading scorecard…"
-                  : "Read scorecard"}
-              </button>
-            </>
-          )}
-          {extraction.status === "reading" && (
-            <p role="status">
-              Reading the scorecard. You can keep editing or replace the file.
-            </p>
-          )}
-          {extraction.status === "failure" && (
-            <p className="inline-error" role="alert">
-              {extraction.error}
-            </p>
-          )}
-          {suggestion && (
-            <div className="extraction-review">
+            </label>
+            {upload && (
+              <>
+                <img
+                  className="scorecard-preview"
+                  width={480}
+                  height={180}
+                  src={upload.url}
+                  alt="Uploaded match scorecard"
+                />
+                <button
+                  type="button"
+                  className="button secondary full"
+                  disabled={pending || extraction.status === "reading"}
+                  onClick={read}
+                >
+                  {extraction.status === "reading" ? (
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className="spin"
+                      size={17}
+                    />
+                  ) : (
+                    <ScanLine aria-hidden="true" size={17} />
+                  )}{" "}
+                  {extraction.status === "reading"
+                    ? "Reading scorecard…"
+                    : "Read scorecard"}
+                </button>
+              </>
+            )}
+            {extraction.status === "reading" && (
               <p role="status">
-                {suggestion.matched
-                  ? "Suggested scores filled. Review them above."
-                  : "Map the observed sides to your teams."}
+                Reading the scorecard. You can keep editing or replace the file.
               </p>
-              {suggestion.warnings.map(
-                (warning: string, index: number): ReactElement => (
-                  <p className="warning-text" key={`${index}:${warning}`}>
-                    {warning}
-                  </p>
-                ),
-              )}
-              {!suggestion.matched && (
-                <>
-                  <p>
-                    {suggestion.observedSides
-                      .map(
-                        (side: Suggestion["observedSides"][number]): string =>
-                          `${side.name ?? "Unreadable name"} (${side.score ?? "?"})`,
-                      )
-                      .join(" vs ")}
-                  </p>
-                  <Field label="Which side is the first team?">
-                    <select
-                      value={mapping}
-                      onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                        setMapping(event.currentTarget.value)
+            )}
+            {extraction.status === "failure" && (
+              <p className="inline-error" role="alert">
+                {extraction.error}
+              </p>
+            )}
+            {suggestion && (
+              <div className="extraction-review">
+                <p role="status">
+                  {suggestion.matched
+                    ? "Suggested scores filled. Review them above."
+                    : "Map the observed sides to your teams."}
+                </p>
+                {suggestion.warnings.length > 0 &&
+                  extraction.status === "suggested" &&
+                  extraction.reversed && (
+                    <p className="warning-text">
+                      Warnings describe the original screenshot sides.
+                    </p>
+                  )}
+                {suggestion.warnings.map(
+                  (warning: string, index: number): ReactElement => (
+                    <p className="warning-text" key={`${index}:${warning}`}>
+                      {warning}
+                    </p>
+                  ),
+                )}
+                <ExtractedStats
+                  stats={suggestion.stats ?? []}
+                  homeName={home.name}
+                  awayName={away.name}
+                  reversed={
+                    extraction.status === "suggested" && extraction.reversed
+                  }
+                />
+                {!suggestion.matched && (
+                  <>
+                    <p>
+                      {suggestion.observedSides
+                        .map(
+                          (side: Suggestion["observedSides"][number]): string =>
+                            `${side.name ?? "Unreadable name"} (${side.score ?? "?"})`,
+                        )
+                        .join(" vs ")}
+                    </p>
+                    <Field label="Which side is the first team?">
+                      <select
+                        value={mapping}
+                        onChange={(
+                          event: ChangeEvent<HTMLSelectElement>,
+                        ): void => setMapping(event.currentTarget.value)}
+                      >
+                        <option value="">Choose the mapping</option>
+                        <option value="normal">
+                          First observed side is {home.name}
+                        </option>
+                        <option value="reverse">
+                          First observed side is {away.name}
+                        </option>
+                      </select>
+                    </Field>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      disabled={!mapping}
+                      onClick={(): void =>
+                        apply(suggestion, mapping === "reverse")
                       }
                     >
-                      <option value="">Choose the mapping</option>
-                      <option value="normal">
-                        First observed side is {home.name}
-                      </option>
-                      <option value="reverse">
-                        First observed side is {away.name}
-                      </option>
-                    </select>
-                  </Field>
-                  <button
-                    type="button"
-                    className="button secondary small"
-                    disabled={!mapping}
-                    onClick={(): void =>
-                      apply(suggestion, mapping === "reverse")
-                    }
-                  >
-                    Apply mapped scores
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+                      Apply mapped scores
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         {state.status === "failure" && (
           <div className="inline-error" role="alert">
             {state.error}
