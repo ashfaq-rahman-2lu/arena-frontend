@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/tournaments/stats/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TournamentsController_statUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tournaments": {
         parameters: {
             query?: never;
@@ -194,6 +210,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["TournamentsController_update"];
+        trace?: never;
+    };
+    "/api/v1/tournaments/{id}/stats/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TournamentsController_enableStats"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tournaments/{id}/stats/archive-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TournamentsController_archiveStatsPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tournaments/{id}/stats/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TournamentsController_archiveStats"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/tournaments/{id}/name": {
@@ -408,6 +472,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/tournaments/{publicId}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PublicViewingController_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/tournaments/{publicId}": {
         parameters: {
             query?: never;
@@ -486,6 +566,11 @@ export interface components {
             token: string;
             password: string;
         };
+        StatUsageView: {
+            used: number;
+            limit: number;
+            tournamentIds: string[];
+        };
         Entrant: {
             id: string;
             name: string;
@@ -493,6 +578,7 @@ export interface components {
             groupId: string | null;
         };
         TournamentSummary: {
+            statsEnabled: boolean;
             id: string;
             publicId: string;
             name: string;
@@ -535,6 +621,8 @@ export interface components {
             qualifierCount: number;
         };
         TournamentSetup: {
+            /** @default false */
+            statsEnabled: boolean;
             name: string;
             /** @enum {string} */
             game: "EFOOTBALL" | "CODM";
@@ -593,7 +681,17 @@ export interface components {
             name: string;
             qualifierCount: number;
         };
+        MatchStatInput: {
+            /** @enum {string} */
+            key: "possession" | "shots" | "shotsOnTarget" | "fouls" | "offsides" | "cornerKicks" | "freeKicks" | "passes" | "successfulPasses" | "crosses" | "interceptions" | "tackles" | "saves";
+            label: string;
+            home?: number | null;
+            away?: number | null;
+            /** @enum {string} */
+            unit: "percent" | "count";
+        };
         Match: {
+            stats?: components["schemas"]["MatchStatInput"][] | null;
             knockoutTieId: string | null;
             id: string;
             /** @enum {string} */
@@ -646,6 +744,7 @@ export interface components {
             rows: components["schemas"]["Standing"][];
         };
         TournamentView: {
+            statsEnabled: boolean;
             id: string;
             publicId: string;
             name: string;
@@ -677,6 +776,8 @@ export interface components {
             knockoutEligibility: components["schemas"]["Eligibility"] | (never | null);
         };
         TournamentUpdate: {
+            /** @default false */
+            statsEnabled: boolean;
             name: string;
             /** @enum {string} */
             game: "EFOOTBALL" | "CODM";
@@ -700,6 +801,17 @@ export interface components {
             entrants: components["schemas"]["EntrantSetup"][];
             groups: components["schemas"]["GroupSetup"][];
             expectedRevision: number;
+        };
+        RevisionInput: {
+            expectedRevision: number;
+        };
+        ArchiveStatsPreviewView: {
+            tournamentRevision: number;
+            statsMatchCount: number;
+        };
+        ArchiveStatsInput: {
+            expectedRevision: number;
+            statsMatchCount: number;
         };
         TournamentNameUpdate: {
             expectedRevision: number;
@@ -749,9 +861,6 @@ export interface components {
             page: number;
             limit: number;
         };
-        RevisionInput: {
-            expectedRevision: number;
-        };
         EntrantUpdate: {
             expectedRevision: number;
             name: string;
@@ -783,7 +892,7 @@ export interface components {
         HistoryEntry: {
             id: string;
             /** @enum {string} */
-            action: "RESET" | "CLEAR" | "SCORE";
+            action: "RESET" | "CLEAR" | "SCORE" | "STATS_ARCHIVE";
             matchId: string | null;
             createdAt: string;
             before: {
@@ -806,6 +915,7 @@ export interface components {
         };
         ResultInput: {
             expectedRevision: number;
+            stats?: components["schemas"]["MatchStatInput"][] | null;
             knockoutDecision?: components["schemas"]["KnockoutDecision"];
             expectedTournamentRevision: number;
             homeScore: number | null;
@@ -850,6 +960,24 @@ export interface components {
             /** @description All thirteen match stat rows; unreadable cells are null. Suggestions only. */
             stats?: components["schemas"]["ExtractedMatchStat"][];
             warnings: string[];
+        };
+        TeamStatValueView: {
+            key: string;
+            label: string;
+            /** @enum {string} */
+            unit: "percent" | "count";
+            value: number | null;
+            recordedMatches: number;
+            playedMatches: number;
+        };
+        TeamStatsRow: {
+            entrantId: string;
+            name: string;
+            stats: components["schemas"]["TeamStatValueView"][];
+        };
+        TeamStatsView: {
+            enabled: boolean;
+            teams: components["schemas"]["TeamStatsRow"][];
         };
         HealthView: {
             status: string;
@@ -1805,6 +1933,97 @@ export interface operations {
             };
         };
     };
+    TournamentsController_statUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatUsageView"];
+                };
+            };
+            /** @description Validation or competition rule failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ownership or CSRF denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Revision conflict or reset confirmation required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     TournamentsController_list: {
         parameters: {
             query?: {
@@ -2101,6 +2320,293 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TournamentUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentView"];
+                };
+            };
+            /** @description Validation or competition rule failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ownership or CSRF denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Revision conflict or reset confirmation required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    TournamentsController_enableStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevisionInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentView"];
+                };
+            };
+            /** @description Validation or competition rule failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ownership or CSRF denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Revision conflict or reset confirmation required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    TournamentsController_archiveStatsPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArchiveStatsPreviewView"];
+                };
+            };
+            /** @description Validation or competition rule failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ownership or CSRF denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Revision conflict or reset confirmation required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    TournamentsController_archiveStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveStatsInput"];
             };
         };
         responses: {
@@ -3469,6 +3975,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExtractionSuggestion"];
+                };
+            };
+            /** @description Validation or competition rule failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ownership or CSRF denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Revision conflict or reset confirmation required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    PublicViewingController_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamStatsView"];
                 };
             };
             /** @description Validation or competition rule failure */

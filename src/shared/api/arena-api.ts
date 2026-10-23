@@ -20,6 +20,10 @@ export type DrawPreview = components["schemas"]["DrawPreview"];
 export type PairingOptions = Partial<
   Pick<components["schemas"]["PairingInput"], "method" | "drawToken" | "slots">
 >;
+export type TeamStats = components["schemas"]["TeamStatsView"];
+export type StatUsage = components["schemas"]["StatUsageView"];
+export type ArchiveStatsPreview =
+  components["schemas"]["ArchiveStatsPreviewView"];
 export type KnockoutTie = components["schemas"]["KnockoutTieView"];
 export type FixturePage = components["schemas"]["FixturePage"];
 export type TournamentFilters = {
@@ -194,6 +198,14 @@ export interface ArenaApi {
   ) => Promise<TournamentPage>;
   get: (id: string, signal?: AbortSignal) => Promise<Tournament>;
   public: (publicId: string, signal?: AbortSignal) => Promise<Tournament>;
+  teamStats: (publicId: string, signal?: AbortSignal) => Promise<TeamStats>;
+  statUsage: () => Promise<StatUsage>;
+  enableStats: (id: string, expectedRevision: number) => Promise<Tournament>;
+  archiveStatsPreview: (id: string) => Promise<ArchiveStatsPreview>;
+  archiveStats: (
+    id: string,
+    body: { expectedRevision: number; statsMatchCount: number },
+  ) => Promise<Tournament>;
   create: (body: Setup) => Promise<Tournament>;
   renameTournament: (
     id: string,
@@ -380,6 +392,38 @@ export function createArenaApi(
         client.GET("/api/v1/public/tournaments/{publicId}", {
           params: { path: { publicId } },
           signal,
+        }),
+      ),
+    teamStats: (publicId: string, signal?: AbortSignal): Promise<TeamStats> =>
+      unwrap(
+        client.GET("/api/v1/public/tournaments/{publicId}/stats", {
+          params: { path: { publicId } },
+          signal,
+        }),
+      ),
+    statUsage: (): Promise<StatUsage> =>
+      unwrap(client.GET("/api/v1/tournaments/stats/usage")),
+    enableStats: (id: string, expectedRevision: number): Promise<Tournament> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/stats/enable", {
+          params: { path: { id } },
+          body: { expectedRevision },
+        }),
+      ),
+    archiveStatsPreview: (id: string): Promise<ArchiveStatsPreview> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/stats/archive-preview", {
+          params: { path: { id } },
+        }),
+      ),
+    archiveStats: (
+      id: string,
+      body: { expectedRevision: number; statsMatchCount: number },
+    ): Promise<Tournament> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/stats/archive", {
+          params: { path: { id } },
+          body,
         }),
       ),
     create: (body: Setup): Promise<Tournament> =>

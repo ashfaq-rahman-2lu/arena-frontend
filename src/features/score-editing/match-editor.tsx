@@ -37,6 +37,11 @@ import {
 } from "./score-draft";
 import { ExtractedStats } from "./extracted-stats";
 import {
+  matchStatsPayload,
+  statsFromMatch,
+  type MatchStatDraft,
+} from "./match-stats-draft";
+import {
   DraftScores,
   mergeSuggestedScores,
   swapDraftScores,
@@ -99,13 +104,19 @@ export function MatchEditor({
   const [scores, setScores] = useState<DraftScores>((): DraftScores =>
     scoresFromMatch(match, t),
   );
-  const [initial, setInitial] = useState(JSON.stringify(scores));
+  const [statsDraft, setStatsDraft] = useState<MatchStatDraft[]>(
+    (): MatchStatDraft[] => statsFromMatch(match.stats ?? null),
+  );
+  const [initial, setInitial] = useState(
+    JSON.stringify({ scores, statsDraft }),
+  );
   const [swapAnnouncement, setSwapAnnouncement] = useState("");
   const [state, setState] = useState<SaveState>({ status: "editing" }),
     [extraction, setExtraction] = useState<ExtractionState>({ status: "idle" }),
     [upload, setUpload] = useState<UploadDraft | null>(null),
     [mapping, setMapping] = useState("");
   const touched = useRef<Set<keyof DraftScores>>(new Set()),
+    touchedStats = useRef<Set<string>>(new Set()),
     mounted = useRef(true),
     requestId = useRef(0),
     abort = useRef<AbortController | null>(null),
@@ -148,9 +159,10 @@ export function MatchEditor({
     };
   }, []);
   const pending = state.status === "saving" || state.status === "previewing";
-  const dirty = JSON.stringify(scores) !== initial;
+  const dirty = JSON.stringify({ scores, statsDraft }) !== initial;
   const fingerprint = JSON.stringify([
     scores,
+    statsDraft,
     base.t.revision,
     base.match.revision,
     t.revision,
@@ -195,6 +207,17 @@ export function MatchEditor({
     ] as const)
       touched.current.add(key);
     setScores(next);
+    setStatsDraft((old: MatchStatDraft[]): MatchStatDraft[] =>
+      old.map((stat: MatchStatDraft): MatchStatDraft => ({
+        ...stat,
+        home: stat.away,
+        away: stat.home,
+      })),
+    );
+    statsDraft.forEach((stat: MatchStatDraft): void => {
+      touchedStats.current.add(`${stat.key}.home`);
+      touchedStats.current.add(`${stat.key}.away`);
+    });
     setFieldError(null);
     if (state.status !== "conflict") setState({ status: "editing" });
     setExtraction((old: ExtractionState): ExtractionState =>
@@ -236,6 +259,30 @@ export function MatchEditor({
     }
     setScores((old: DraftScores): DraftScores =>
       mergeSuggestedScores(old, values, touched.current),
+    );
+    const reverseStats =
+      reversed ?? (extraction.status === "suggested" && extraction.reversed);
+    setStatsDraft((old: MatchStatDraft[]): MatchStatDraft[] =>
+      old.map((stat: MatchStatDraft): MatchStatDraft => {
+        const suggested = suggestion.stats?.find(
+          (candidate: NonNullable<Suggestion["stats"]>[number]): boolean =>
+            candidate.key === stat.key,
+        );
+        if (!suggested) return stat;
+        const homeValue = reverseStats ? suggested.away : suggested.home;
+        const awayValue = reverseStats ? suggested.home : suggested.away;
+        return {
+          ...stat,
+          home:
+            touchedStats.current.has(`${stat.key}.home`) || homeValue === null
+              ? stat.home
+              : String(homeValue),
+          away:
+            touchedStats.current.has(`${stat.key}.away`) || awayValue === null
+              ? stat.away
+              : String(awayValue),
+        };
+      }),
     );
     setState({ status: "editing" });
   };
@@ -325,7 +372,7 @@ export function MatchEditor({
     const result = await saveMutation.mutateAsync(body);
     if (!mounted.current) return;
     onSaved(result);
-    setInitial(JSON.stringify(scores));
+    setInitial(JSON.stringify({ scores, statsDraft }));
     toast(
       body.homeScore === null
         ? "Result cleared"
@@ -353,6 +400,8 @@ export function MatchEditor({
         clear,
         base.t,
       );
+      if (base.t.statsEnabled && !clear)
+        body.stats = matchStatsPayload(statsDraft);
       const impact = await previewMutation.mutateAsync(body);
       if (!mounted.current) return;
       if (impact.requiresReset)
@@ -570,6 +619,86 @@ export function MatchEditor({
               </div>
             </div>
           )}
+        {base.t.statsEnabled && (
+          <details
+            className="match-stats-editor"
+            open={statsDraft.some(
+              (stat: MatchStatDraft): boolean =>
+                stat.home !== "" || stat.away !== "",
+            )}
+          >
+            <summary>Match stats (optional)</summary>
+            <p>Leave any stat blank if it was not recorded.</p>
+            <div className="match-stat-fields">
+              {statsDraft.map((stat: MatchStatDraft): ReactElement => (
+                <fieldset key={stat.key}>
+                  <legend>
+                    {stat.label}
+                    {stat.unit === "percent" ? " (%)" : ""}
+                  </legend>
+                  <div className="form-row">
+                    <Field label={home.name}>
+                      <input
+                        aria-label={`${home.name} ${stat.label}`}
+                        type="number"
+                        min={0}
+                        max={stat.unit === "percent" ? 100 : 9999}
+                        step={1}
+                        value={stat.home}
+                        onChange={(
+                          event: ChangeEvent<HTMLInputElement>,
+                        ): void => {
+                          const value = event.currentTarget.value;
+                          touchedStats.current.add(`${stat.key}.home`);
+                          setStatsDraft(
+                            (old: MatchStatDraft[]): MatchStatDraft[] =>
+                              old.map(
+                                (entry: MatchStatDraft): MatchStatDraft =>
+                                  entry.key === stat.key
+                                    ? {
+                                        ...entry,
+                                        home: value,
+                                      }
+                                    : entry,
+                              ),
+                          );
+                        }}
+                      />
+                    </Field>
+                    <Field label={away.name}>
+                      <input
+                        aria-label={`${away.name} ${stat.label}`}
+                        type="number"
+                        min={0}
+                        max={stat.unit === "percent" ? 100 : 9999}
+                        step={1}
+                        value={stat.away}
+                        onChange={(
+                          event: ChangeEvent<HTMLInputElement>,
+                        ): void => {
+                          const value = event.currentTarget.value;
+                          touchedStats.current.add(`${stat.key}.away`);
+                          setStatsDraft(
+                            (old: MatchStatDraft[]): MatchStatDraft[] =>
+                              old.map(
+                                (entry: MatchStatDraft): MatchStatDraft =>
+                                  entry.key === stat.key
+                                    ? {
+                                        ...entry,
+                                        away: value,
+                                      }
+                                    : entry,
+                              ),
+                          );
+                        }}
+                      />
+                    </Field>
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+          </details>
+        )}
         {t.game === "EFOOTBALL" && (
           <div className="upload-section">
             <h3>

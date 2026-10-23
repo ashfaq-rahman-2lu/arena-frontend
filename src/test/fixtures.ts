@@ -16,6 +16,7 @@ export const match: Match = {
   revision: 1,
 };
 export const tournament: Tournament = {
+  statsEnabled: false,
   id: "tournament-id",
   publicId: "ARENA2026",
   name: "Test league",

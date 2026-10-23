@@ -862,6 +862,47 @@ test("shows extracted stats for both sides without saving them", async (): Promi
   cache.clear();
 });
 
+test("saves optional manually entered stats with the match result", async (): Promise<void> => {
+  vi.spyOn(api, "impact").mockResolvedValue({
+    requiresReset: false,
+    reason: null,
+    roundIds: [],
+    matchIds: [],
+    resetQualification: false,
+    impactToken: "token",
+    tournamentRevision: 1,
+  });
+  const save = vi.spyOn(api, "result").mockResolvedValue(tournament);
+  const cache = new QueryClient();
+  render(
+    <QueryClientProvider client={cache}>
+      <MemoryRouter>
+        <MatchEditor
+          t={{ ...tournament, statsEnabled: true }}
+          match={{ ...match, stats: null }}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await userEvent.click(screen.getByText("Match stats (optional)"));
+  await userEvent.type(
+    screen.getByRole("spinbutton", { name: "Alpha Shots" }),
+    "7",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Save result" }));
+  await waitFor((): void => expect(save).toHaveBeenCalled());
+  const savedStats = save.mock.calls[0]?.[1].stats;
+  expect(
+    savedStats?.find(
+      (stat: NonNullable<Match["stats"]>[number]): boolean =>
+        stat.key === "shots",
+    ),
+  ).toMatchObject({ home: 7, away: null });
+  cache.clear();
+});
+
 test("CODM tournaments offer manual scores without scorecard upload", async (): Promise<void> => {
   const extract = vi.spyOn(api, "extract");
   const cache = new QueryClient();

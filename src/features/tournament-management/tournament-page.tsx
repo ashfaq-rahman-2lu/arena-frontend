@@ -5,8 +5,11 @@ import type { PairingOptions } from "../../shared/api/arena-api";
 interface TournamentPageProps {
   admin?: boolean;
 }
-import type { QueryObserverResult } from "@tanstack/react-query";
-import { useQueryClient } from "@tanstack/react-query";
+import type {
+  QueryFunctionContext,
+  QueryObserverResult,
+} from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,6 +32,7 @@ import {
   ApiError,
   errorMessage,
   type Match,
+  type TeamStats,
   type Tournament,
 } from "../../shared/api/arena-api";
 import {
@@ -77,6 +81,20 @@ export function TournamentPage({
   const mutation = useTournamentMutation(ownerId);
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") ?? "overview";
+  const statsQuery = useQuery({
+    queryKey: [
+      "team-stats",
+      publicId ?? query.data?.publicId ?? "",
+      query.data?.revision ?? 0,
+    ],
+    queryFn: ({
+      signal,
+    }: QueryFunctionContext): Promise<
+      import("../../shared/api/arena-api").TeamStats
+    > => api.teamStats(publicId ?? query.data?.publicId ?? "", signal),
+    enabled: Boolean(query.data?.statsEnabled && tab === "stats"),
+    retry: false,
+  });
   const setParam = (name: string, value: string): void => {
     setParams((old: URLSearchParams): URLSearchParams => {
       const next = new URLSearchParams(old);
@@ -160,6 +178,31 @@ export function TournamentPage({
     } finally {
       lock.current = false;
       setPending(false);
+    }
+  };
+  const enableStats = async (): Promise<void> => {
+    await action(
+      (): Promise<Tournament> => api.enableStats(t.id, t.revision),
+      "Match stats enabled.",
+    );
+  };
+  const archiveStats = async (): Promise<void> => {
+    try {
+      const preview = await api.archiveStatsPreview(t.id);
+      const accepted = window.confirm(
+        `Permanently delete stats from ${preview.statsMatchCount} matches? Match results and standings will remain.`,
+      );
+      if (!accepted) return;
+      await action(
+        (): Promise<Tournament> =>
+          api.archiveStats(t.id, {
+            expectedRevision: preview.tournamentRevision,
+            statsMatchCount: preview.statsMatchCount,
+          }),
+        "Match stats archived and storage slot freed.",
+      );
+    } catch (error: unknown) {
+      setActionError(errorMessage(error));
     }
   };
   if (admin && session.isPending) return <Spinner />;
@@ -527,6 +570,26 @@ export function TournamentPage({
           </div>
         </div>
         <div className="action-row">
+          {admin && t.game === "EFOOTBALL" && !t.statsEnabled && (
+            <button
+              className="button secondary"
+              type="button"
+              disabled={pending}
+              onClick={enableStats}
+            >
+              Enable match stats
+            </button>
+          )}
+          {admin && t.statsEnabled && (
+            <button
+              className="button secondary"
+              type="button"
+              disabled={pending}
+              onClick={archiveStats}
+            >
+              Archive stats
+            </button>
+          )}
           <ShareButton code={t.publicId} />
           {admin && (
             <Link className="text-button" to={`/t/${t.publicId}`}>
@@ -699,6 +762,7 @@ export function TournamentPage({
           ...(t.format !== "KNOCKOUT" ? [["standings", "Standings"]] : []),
           ...(t.format !== "LEAGUE" ? [["knockout", "Knockout"]] : []),
           ["teams", "Teams"],
+          ...(t.statsEnabled ? [["stats", "Team stats"]] : []),
           ...(admin ? [["history", "Revision history"]] : []),
         ].map(([value, label]: string[]): React.JSX.Element => (
           <button
@@ -796,6 +860,77 @@ export function TournamentPage({
           </div>
         )}
         {tab === "standings" && <div>{renderStandings()}</div>}
+        {tab === "stats" && t.statsEnabled && (
+          <section className="panel team-stats-panel" aria-label="Team stats">
+            {statsQuery.isPending ? (
+              <p role="status">Loading team stats…</p>
+            ) : statsQuery.error ? (
+              <p role="alert">
+                Could not load team stats. {errorMessage(statsQuery.error)}
+              </p>
+            ) : !statsQuery.data?.teams.some(
+                (team: TeamStats["teams"][number]): boolean =>
+                  team.stats.some(
+                    (
+                      stat: TeamStats["teams"][number]["stats"][number],
+                    ): boolean => stat.recordedMatches > 0,
+                  ),
+              ) ? (
+              <p>
+                No match stats have been recorded yet. Add optional stats when
+                saving a match result.
+              </p>
+            ) : (
+              <div
+                className="table-scroll"
+                tabIndex={0}
+                role="region"
+                aria-label="Tournament team stats"
+              >
+                <table>
+                  <thead>
+                    <tr>
+                      <th scope="col">Team</th>
+                      {statsQuery.data.teams[0]?.stats.map(
+                        (
+                          stat: TeamStats["teams"][number]["stats"][number],
+                        ): React.JSX.Element => (
+                          <th scope="col" key={stat.key}>
+                            {stat.label}
+                          </th>
+                        ),
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statsQuery.data.teams.map(
+                      (team: TeamStats["teams"][number]): React.JSX.Element => (
+                        <tr key={team.entrantId}>
+                          <th scope="row">{team.name}</th>
+                          {team.stats.map(
+                            (
+                              stat: TeamStats["teams"][number]["stats"][number],
+                            ): React.JSX.Element => (
+                              <td key={stat.key}>
+                                {stat.value === null
+                                  ? "—"
+                                  : `${stat.value}${stat.unit === "percent" ? "%" : ""}`}
+                                <small className="stat-coverage">
+                                  {stat.recordedMatches}/{stat.playedMatches}{" "}
+                                  matches
+                                </small>
+                              </td>
+                            ),
+                          )}
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
         {tab === "fixtures" && (
           <section className="fixtures-section">
             <div className="list-toolbar">
@@ -928,9 +1063,11 @@ export function TournamentPage({
                       <strong>
                         {h.action === "RESET"
                           ? "Progression reset"
-                          : h.action === "CLEAR"
-                            ? "Result cleared"
-                            : "Result saved"}
+                          : h.action === "STATS_ARCHIVE"
+                            ? "Match stats archived"
+                            : h.action === "CLEAR"
+                              ? "Result cleared"
+                              : "Result saved"}
                       </strong>
                       <span>{new Date(h.createdAt).toLocaleString()}</span>
                     </summary>

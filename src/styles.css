@@ -2988,6 +2988,42 @@ h3 {
   }
 }
 
+.stats-opt-in {
+  margin-top: 1rem;
+  align-items: flex-start;
+}
+.stats-opt-in span {
+  display: grid;
+  gap: 0.35rem;
+}
+.match-stats-editor {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line, #344038);
+  border-radius: 0.8rem;
+}
+.match-stats-editor summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.match-stat-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.match-stat-fields fieldset {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line, #344038);
+  border-radius: 0.65rem;
+}
+.stat-coverage {
+  display: block;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+}
+
 /* Tournament editing and knockout ties share the existing Arena palette. */
 .tournament-tools {
   display: flex;
