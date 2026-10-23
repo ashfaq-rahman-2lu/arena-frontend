@@ -14,6 +14,7 @@ export interface DraftGroup {
   qualifierCount: string;
 }
 export interface SetupDraft {
+  statsEnabled: boolean;
   name: string;
   game: "EFOOTBALL" | "CODM";
   format: Setup["format"];
@@ -156,6 +157,7 @@ export function validateSetupDraft(
   return {
     valid: true,
     payload: {
+      statsEnabled: draft.statsEnabled,
       name,
       game: draft.game,
       format: draft.format,
@@ -183,6 +185,7 @@ export function newGroup(name: string = "Group A"): DraftGroup {
 }
 export function newSetupDraft(): SetupDraft {
   return {
+    statsEnabled: false,
     name: "",
     game: "EFOOTBALL",
     format: "LEAGUE",
@@ -198,6 +201,7 @@ export function newSetupDraft(): SetupDraft {
 }
 export function draftFromTournament(t: Tournament): SetupDraft {
   return {
+    statsEnabled: t.statsEnabled,
     name: t.name,
     game: t.game === "CODM" ? "CODM" : "EFOOTBALL",
     format: t.format,

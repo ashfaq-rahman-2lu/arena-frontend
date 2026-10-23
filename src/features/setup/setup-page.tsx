@@ -217,6 +217,27 @@ function SetupForm({ initial, ownerId }: SetupFormProps): ReactElement {
                 )}
               </div>
             </fieldset>
+            {draft.game === "EFOOTBALL" && (
+              <div className="choice stats-opt-in">
+                <input
+                  id="stats-opt-in"
+                  type="checkbox"
+                  checked={draft.statsEnabled}
+                  disabled={Boolean(initial)}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    update("statsEnabled", event.currentTarget.checked)
+                  }
+                />
+                <label htmlFor="stats-opt-in">
+                  <strong>Store optional match stats</strong>
+                  <small>
+                    {initial
+                      ? "Enable stats from the tournament page after setup."
+                      : "Keep match stats and show team totals. You can archive the stats later to free a slot."}
+                  </small>
+                </label>
+              </div>
+            )}
           </section>
           <section className="panel">
             <h2>Your format</h2>

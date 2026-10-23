@@ -1878,6 +1878,16 @@ td:nth-child(2) {
   color: #58773a;
   margin-top: 87px;
 }
+.swap-results {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: -10px 0 22px;
+}
+.swap-results p {
+  font-size: 0.75rem;
+}
 .upload-section {
   border-top: 1px solid #334127;
   padding-top: 24px;
@@ -1952,6 +1962,32 @@ td:nth-child(2) {
 }
 .extraction-review .field {
   margin-top: 16px;
+}
+.extracted-stats {
+  margin-top: 16px;
+}
+.extracted-stats caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 8px;
+}
+.extracted-stats th,
+.extracted-stats td {
+  padding: 9px 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.extracted-stats th:first-child {
+  text-align: left;
+}
+.extracted-stats th[scope="row"] {
+  border-top: 1px solid var(--line);
+}
+.extracted-stats .table-scroll:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
 }
 .tiebreak-box {
   background: #111a0b;
@@ -2950,6 +2986,42 @@ h3 {
   .modal-actions {
     flex-wrap: wrap;
   }
+}
+
+.stats-opt-in {
+  margin-top: 1rem;
+  align-items: flex-start;
+}
+.stats-opt-in span {
+  display: grid;
+  gap: 0.35rem;
+}
+.match-stats-editor {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line, #344038);
+  border-radius: 0.8rem;
+}
+.match-stats-editor summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.match-stat-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.match-stat-fields fieldset {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--line, #344038);
+  border-radius: 0.65rem;
+}
+.stat-coverage {
+  display: block;
+  margin-top: 0.2rem;
+  white-space: nowrap;
 }
 
 /* Tournament editing and knockout ties share the existing Arena palette. */

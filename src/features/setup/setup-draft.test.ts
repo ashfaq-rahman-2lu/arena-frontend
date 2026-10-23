@@ -3,6 +3,7 @@ import type { Tournament } from "../../shared/api/arena-api";
 import { tournament } from "../../test/fixtures";
 import { SetupDraft, validateSetupDraft } from "./setup-draft";
 const draft: SetupDraft = {
+  statsEnabled: false,
   name: "League",
   game: "EFOOTBALL",
   format: "LEAGUE",

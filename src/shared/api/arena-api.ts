@@ -20,6 +20,10 @@ export type DrawPreview = components["schemas"]["DrawPreview"];
 export type PairingOptions = Partial<
   Pick<components["schemas"]["PairingInput"], "method" | "drawToken" | "slots">
 >;
+export type TeamStats = components["schemas"]["TeamStatsView"];
+export type StatUsage = components["schemas"]["StatUsageView"];
+export type ArchiveStatsPreview =
+  components["schemas"]["ArchiveStatsPreviewView"];
 export type KnockoutTie = components["schemas"]["KnockoutTieView"];
 export type FixturePage = components["schemas"]["FixturePage"];
 export type TournamentFilters = {
@@ -92,6 +96,49 @@ export function safeApiError(error: unknown, status: number): ApiError {
   }
   return new ApiError(message, status, code);
 }
+type MatchStat = NonNullable<Suggestion["stats"]>[number];
+const statKeys: MatchStat["key"][] = [
+  "possession",
+  "shots",
+  "shotsOnTarget",
+  "fouls",
+  "offsides",
+  "cornerKicks",
+  "freeKicks",
+  "passes",
+  "successfulPasses",
+  "crosses",
+  "interceptions",
+  "tackles",
+  "saves",
+];
+function isMatchStat(value: unknown): value is MatchStat {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("key" in value) ||
+    !statKeys.some((key: MatchStat["key"]): boolean => key === value.key) ||
+    !("label" in value) ||
+    typeof value.label !== "string" ||
+    value.label.length === 0 ||
+    value.label.length > 50 ||
+    !("unit" in value) ||
+    (value.unit !== "percent" && value.unit !== "count") ||
+    (value.key === "possession") !== (value.unit === "percent")
+  )
+    return false;
+  const max = value.unit === "percent" ? 100 : 9999;
+  return ["home", "away"].every((side: string): boolean => {
+    const cell: unknown = Reflect.get(value, side);
+    return (
+      cell === null ||
+      (typeof cell === "number" &&
+        Number.isInteger(cell) &&
+        cell >= 0 &&
+        cell <= max)
+    );
+  });
+}
 function isSuggestion(value: unknown): value is Suggestion {
   if (!value || typeof value !== "object") return false;
   if (
@@ -115,6 +162,14 @@ function isSuggestion(value: unknown): value is Suggestion {
       item <= 2147483647);
   for (const name of ["homeScore", "awayScore", "homeTiebreak", "awayTiebreak"])
     if (!score(Reflect.get(value, name))) return false;
+  if ("stats" in value && value.stats !== undefined) {
+    if (!Array.isArray(value.stats) || value.stats.length > 13) return false;
+    const keys = new Set<string>();
+    for (const stat of value.stats) {
+      if (!isMatchStat(stat) || keys.has(stat.key)) return false;
+      keys.add(stat.key);
+    }
+  }
   return value.observedSides.every((side: unknown): boolean =>
     Boolean(
       side &&
@@ -143,6 +198,14 @@ export interface ArenaApi {
   ) => Promise<TournamentPage>;
   get: (id: string, signal?: AbortSignal) => Promise<Tournament>;
   public: (publicId: string, signal?: AbortSignal) => Promise<Tournament>;
+  teamStats: (publicId: string, signal?: AbortSignal) => Promise<TeamStats>;
+  statUsage: () => Promise<StatUsage>;
+  enableStats: (id: string, expectedRevision: number) => Promise<Tournament>;
+  archiveStatsPreview: (id: string) => Promise<ArchiveStatsPreview>;
+  archiveStats: (
+    id: string,
+    body: { expectedRevision: number; statsMatchCount: number },
+  ) => Promise<Tournament>;
   create: (body: Setup) => Promise<Tournament>;
   renameTournament: (
     id: string,
@@ -329,6 +392,38 @@ export function createArenaApi(
         client.GET("/api/v1/public/tournaments/{publicId}", {
           params: { path: { publicId } },
           signal,
+        }),
+      ),
+    teamStats: (publicId: string, signal?: AbortSignal): Promise<TeamStats> =>
+      unwrap(
+        client.GET("/api/v1/public/tournaments/{publicId}/stats", {
+          params: { path: { publicId } },
+          signal,
+        }),
+      ),
+    statUsage: (): Promise<StatUsage> =>
+      unwrap(client.GET("/api/v1/tournaments/stats/usage")),
+    enableStats: (id: string, expectedRevision: number): Promise<Tournament> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/stats/enable", {
+          params: { path: { id } },
+          body: { expectedRevision },
+        }),
+      ),
+    archiveStatsPreview: (id: string): Promise<ArchiveStatsPreview> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/stats/archive-preview", {
+          params: { path: { id } },
+        }),
+      ),
+    archiveStats: (
+      id: string,
+      body: { expectedRevision: number; statsMatchCount: number },
+    ): Promise<Tournament> =>
+      unwrap(
+        client.POST("/api/v1/tournaments/{id}/stats/archive", {
+          params: { path: { id } },
+          body,
         }),
       ),
     create: (body: Setup): Promise<Tournament> =>

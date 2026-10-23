@@ -39,6 +39,12 @@ The frontend image serves static files; it has no hardcoded backend container ho
 
 Cookie sessions work with sibling HTTPS subdomains, e.g. `app.example.com` and `api.example.com`, while the API allows the exact frontend origin via credentialed CORS. For different root domains, configure the frontend hosting ingress to forward `/api` to the separately hosted API and leave `VITE_API_BASE_URL` empty. Static Nginx in this image does not automatically configure that external ingress. A same-origin proxy must also forward OAuth callback routes; configure Google's callback URL accordingly.
 
+## Reviewing match results
+
+Every game's result editor includes **Swap results** beneath the score fields. It reverses the draft scores and any displayed OCR stat columns while keeping team identities and fixture order fixed. Swapping never saves automatically; review the result and select **Save result**. Single-match knockout tiebreaks and the selected winner move with the result. Swapping a leg of a two-leg tie clears the aggregate decision so it can be reviewed again.
+
+Screenshot upload remains available only for eFootball tournaments. Stats are labeled with the tournament's home/away team names, and reversed screenshot sides are identified. Reading a new upload resets the displayed screenshot orientation, while manually edited or swapped scores remain protected from OCR overwrites.
+
 ## API schema updates
 
 `contracts/openapi.json` is a committed snapshot supplied by an API release. Ordinary installs, builds, and tests use it offline.

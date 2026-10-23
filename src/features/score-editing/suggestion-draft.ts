@@ -5,6 +5,29 @@ export type DraftScores = {
   awayTiebreak: string;
   winner: string;
 };
+export interface SwapDraftContext {
+  homeId: string;
+  awayId: string;
+  aggregate: boolean;
+}
+export function swapDraftScores(
+  draft: DraftScores,
+  context: SwapDraftContext,
+): DraftScores {
+  return {
+    home: draft.away,
+    away: draft.home,
+    homeTiebreak: context.aggregate ? "" : draft.awayTiebreak,
+    awayTiebreak: context.aggregate ? "" : draft.homeTiebreak,
+    winner: context.aggregate
+      ? ""
+      : draft.winner === context.homeId
+        ? context.awayId
+        : draft.winner === context.awayId
+          ? context.homeId
+          : "",
+  };
+}
 export function mergeSuggestedScores(
   old: DraftScores,
   values: Partial<Record<keyof DraftScores, number | null>>,

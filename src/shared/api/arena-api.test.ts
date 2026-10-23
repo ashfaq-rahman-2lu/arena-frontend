@@ -171,3 +171,45 @@ test("JSON requests and scorecard uploads use the same separately hosted API", a
     "https://api.arena.test/api/v1/matches/match/extract-score",
   ]);
 });
+
+for (const stats of [
+  null,
+  [{ key: "passes", label: "Passes", home: "115", away: 79, unit: "count" }],
+]) {
+  test(`rejects malformed extracted stats ${JSON.stringify(stats)}`, async (): Promise<void> => {
+    const instance = createArenaApi(
+      async (
+        input: RequestInfo | URL,
+        _init?: RequestInit,
+      ): Promise<Response> => {
+        const url = input instanceof Request ? input.url : String(input);
+        return new Response(
+          JSON.stringify(
+            url.endsWith("/auth/session")
+              ? { csrf: "csrf", user: null, googleEnabled: false }
+              : {
+                  matched: true,
+                  homeScore: 1,
+                  awayScore: 2,
+                  homeTiebreak: null,
+                  awayTiebreak: null,
+                  observedSides: [
+                    { name: null, score: 1, tiebreak: null },
+                    { name: null, score: 2, tiebreak: null },
+                  ],
+                  warnings: [],
+                  stats,
+                },
+          ),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      },
+    );
+    await expect(
+      instance.extract(
+        "match",
+        new File(["image"], "score.png", { type: "image/png" }),
+      ),
+    ).rejects.toThrow();
+  });
+}
