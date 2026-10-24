@@ -28,14 +28,13 @@ import {
 } from "../../shared/api/arena-api";
 import { DraftNavigationBoundary } from "../../shared/hooks/use-dirty-draft";
 import { ConflictReview } from "../../shared/ui/conflict-review";
-import { Field, Modal, TeamMark, useToast } from "../../shared/ui/primitives";
+import { Field, Modal, useToast } from "../../shared/ui/primitives";
 import {
   aggregateDraft,
   resultPayload,
   ScoreValidationError,
   scoresFromMatch,
 } from "./score-draft";
-import { ExtractedStats } from "./extracted-stats";
 import {
   matchStatsPayload,
   statsFromMatch,
@@ -51,6 +50,8 @@ export interface MatchEditorProps {
   match: Match;
   onClose: () => void;
   onSaved: (t: Tournament) => void;
+  onNext?: (t: Tournament) => void;
+  onCompleted?: () => void;
 }
 interface MatchSnapshot {
   t: Tournament;
@@ -69,6 +70,7 @@ type SaveState =
       impact: Impact;
       payload: ResultInput;
       fingerprint: string;
+      advance: boolean;
     }
   | { status: "failure"; error: string; expired: boolean }
   | { status: "conflict"; latest: MatchSnapshot | null; error: string };
@@ -87,6 +89,8 @@ export function MatchEditor({
   match,
   onClose,
   onSaved,
+  onNext,
+  onCompleted,
 }: MatchEditorProps): ReactElement {
   const home = t.entrants.find(
       (entrant: Tournament["entrants"][number]): boolean =>
@@ -110,6 +114,7 @@ export function MatchEditor({
   const [initial, setInitial] = useState(
     JSON.stringify({ scores, statsDraft }),
   );
+  const scorecardInput = useRef<HTMLInputElement>(null);
   const [swapAnnouncement, setSwapAnnouncement] = useState("");
   const [state, setState] = useState<SaveState>({ status: "editing" }),
     [extraction, setExtraction] = useState<ExtractionState>({ status: "idle" }),
@@ -367,7 +372,10 @@ export function MatchEditor({
         expired: error instanceof ApiError && error.status === 401,
       });
   };
-  const save = async (body: ResultInput): Promise<void> => {
+  const save = async (
+    body: ResultInput,
+    advance: boolean = false,
+  ): Promise<void> => {
     setState({ status: "saving" });
     const result = await saveMutation.mutateAsync(body);
     if (!mounted.current) return;
@@ -378,9 +386,13 @@ export function MatchEditor({
         ? "Result cleared"
         : "Result saved. Standings updated.",
     );
-    onClose();
+    if (advance && onNext) onNext(result);
+    else (onCompleted ?? onClose)();
   };
-  const submit = async (clear: boolean = false): Promise<void> => {
+  const submit = async (
+    clear: boolean = false,
+    advance: boolean = false,
+  ): Promise<void> => {
     if (busy.current || pending || state.status === "conflict") return;
     if (
       clear &&
@@ -405,8 +417,14 @@ export function MatchEditor({
       const impact = await previewMutation.mutateAsync(body);
       if (!mounted.current) return;
       if (impact.requiresReset)
-        setState({ status: "confirming", impact, payload: body, fingerprint });
-      else await save(body);
+        setState({
+          status: "confirming",
+          impact,
+          payload: body,
+          fingerprint,
+          advance,
+        });
+      else await save(body, advance);
     } catch (error: unknown) {
       if (error instanceof ScoreValidationError) {
         setFieldError(error);
@@ -421,11 +439,14 @@ export function MatchEditor({
     if (!confirmation || busy.current) return;
     busy.current = true;
     try {
-      await save({
-        ...confirmation.payload,
-        confirmReset: true,
-        impactToken: confirmation.impact.impactToken,
-      });
+      await save(
+        {
+          ...confirmation.payload,
+          confirmReset: true,
+          impactToken: confirmation.impact.impactToken,
+        },
+        confirmation.advance,
+      );
     } catch (error: unknown) {
       await fail(error);
     } finally {
@@ -450,6 +471,7 @@ export function MatchEditor({
     );
   return (
     <Modal
+      className="score-editor-modal"
       title="Make the result official"
       onClose={onClose}
       dirty={dirty}
@@ -465,182 +487,322 @@ export function MatchEditor({
           void submit();
         }}
       >
-        <div className="match-context">
-          <span>
-            Round {match.round} ·{" "}
-            {match.stage === "KNOCKOUT" ? "Knockout" : "Round robin"}
-          </span>
-          <span>Play in any order</span>
-        </div>
-        <div className="scoreboard-input">
-          <div>
-            <TeamMark name={home.name} />
-            <h3>{home.name}</h3>
-            <Field
-              label={`${home.name} score`}
-              error={
-                fieldError?.field === "home" ? fieldError.message : undefined
-              }
-            >
-              <input
-                type="number"
-                min={0}
-                max={2147483647}
-                step={1}
-                id={`${match.id}-home`}
-                value={scores.home}
-                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                  change("home", event.currentTarget.value)
-                }
-              />
-            </Field>
+        <div className="match-editor-body">
+          <div className="match-context">
+            <span>
+              Round {match.round} ·{" "}
+              {match.stage === "KNOCKOUT" ? "Knockout" : "Round robin"}
+            </span>
+            <span>Play in any order</span>
           </div>
-          <span className="score-separator" aria-hidden="true">
-            :
-          </span>
-          <div>
-            <TeamMark name={away.name} />
-            <h3>{away.name}</h3>
-            <Field
-              label={`${away.name} score`}
-              error={
-                fieldError?.field === "away" ? fieldError.message : undefined
+          <div className="scoreboard-input">
+            <h3 className="score-team-home">{home.name}</h3>
+            <label className="sr-only" htmlFor={`${match.id}-home`}>
+              {home.name} score
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={2147483647}
+              step={1}
+              id={`${match.id}-home`}
+              value={scores.home}
+              aria-invalid={fieldError?.field === "home" || undefined}
+              aria-describedby={
+                fieldError?.field === "home"
+                  ? `${match.id}-score-error`
+                  : undefined
               }
-            >
-              <input
-                type="number"
-                min={0}
-                max={2147483647}
-                step={1}
-                id={`${match.id}-away`}
-                value={scores.away}
-                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                  change("away", event.currentTarget.value)
-                }
-              />
-            </Field>
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                change("home", event.currentTarget.value)
+              }
+            />
+            <span className="score-separator" aria-hidden="true">
+              :
+            </span>
+            <label className="sr-only" htmlFor={`${match.id}-away`}>
+              {away.name} score
+            </label>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={2147483647}
+              step={1}
+              id={`${match.id}-away`}
+              value={scores.away}
+              aria-invalid={fieldError?.field === "away" || undefined}
+              aria-describedby={
+                fieldError?.field === "away"
+                  ? `${match.id}-score-error`
+                  : undefined
+              }
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                change("away", event.currentTarget.value)
+              }
+            />
+            <h3 className="score-team-away">{away.name}</h3>
           </div>
-        </div>
-        <div className="swap-results">
-          <button
-            type="button"
-            className="button secondary small"
-            onClick={swapResults}
-            disabled={!canSwap || pending || extraction.status === "reading"}
-          >
-            <ArrowLeftRight aria-hidden="true" size={16} /> Swap results
-          </button>
-          <p
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className={swapAnnouncement ? "" : "sr-only"}
-          >
-            {swapAnnouncement}
-          </p>
-        </div>
-        {aggregate && (
-          <p role="status">
-            Aggregate: {decisionHome?.name} {aggregate.homeAggregate} –{" "}
-            {aggregate.awayAggregate} {decisionAway?.name}.{" "}
-            {match.leg === 1
-              ? "Both legs must finish before a team advances."
-              : "No away-goals rule applies."}
-          </p>
-        )}
-        {match.stage === "KNOCKOUT" &&
-          (aggregate
-            ? aggregate.canDecide
-            : scores.home !== "" &&
-              scores.away !== "" &&
-              scores.home === scores.away) && (
-            <div className="tiebreak-box">
-              <Field
-                label={
-                  aggregate
-                    ? "Winner of the tied aggregate"
-                    : "Winner of the tied match"
-                }
-                error={
-                  fieldError?.field === "winner"
-                    ? fieldError.message
-                    : undefined
-                }
-              >
-                <select
-                  id={`${match.id}-winner`}
-                  value={scores.winner}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                    change("winner", event.currentTarget.value)
-                  }
-                >
-                  <option value="">Choose winner</option>
-                  <option value={decisionHome?.id}>{decisionHome?.name}</option>
-                  <option value={decisionAway?.id}>{decisionAway?.name}</option>
-                </select>
-              </Field>
-              <div className="form-row">
-                <Field
-                  label={`${decisionHome?.name} tiebreak (optional)`}
-                  error={
-                    fieldError?.field === "homeTiebreak"
-                      ? fieldError.message
-                      : undefined
-                  }
-                >
-                  <input
-                    type="number"
-                    min={0}
-                    id={`${match.id}-homeTiebreak`}
-                    value={scores.homeTiebreak}
-                    onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                      change("homeTiebreak", event.currentTarget.value)
-                    }
-                  />
-                </Field>
-                <Field
-                  label={`${decisionAway?.name} tiebreak (optional)`}
-                  error={
-                    fieldError?.field === "awayTiebreak"
-                      ? fieldError.message
-                      : undefined
-                  }
-                >
-                  <input
-                    type="number"
-                    min={0}
-                    id={`${match.id}-awayTiebreak`}
-                    value={scores.awayTiebreak}
-                    onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                      change("awayTiebreak", event.currentTarget.value)
-                    }
-                  />
-                </Field>
-              </div>
-            </div>
+          {(fieldError?.field === "home" || fieldError?.field === "away") && (
+            <p
+              className="score-error inline-error"
+              id={`${match.id}-score-error`}
+              role="alert"
+            >
+              {fieldError.message}
+            </p>
           )}
-        {base.t.statsEnabled && (
-          <details
-            className="match-stats-editor"
-            open={statsDraft.some(
-              (stat: MatchStatDraft): boolean =>
-                stat.home !== "" || stat.away !== "",
+          <div className="swap-results">
+            <button
+              type="button"
+              className="button secondary small"
+              onClick={swapResults}
+              disabled={!canSwap || pending || extraction.status === "reading"}
+            >
+              <ArrowLeftRight aria-hidden="true" size={16} /> Swap results
+            </button>
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className={swapAnnouncement ? "" : "sr-only"}
+            >
+              {swapAnnouncement}
+            </p>
+          </div>
+          {aggregate && (
+            <p role="status">
+              Aggregate: {decisionHome?.name} {aggregate.homeAggregate} –{" "}
+              {aggregate.awayAggregate} {decisionAway?.name}.{" "}
+              {match.leg === 1
+                ? "Both legs must finish before a team advances."
+                : "No away-goals rule applies."}
+            </p>
+          )}
+          {match.stage === "KNOCKOUT" &&
+            (aggregate
+              ? aggregate.canDecide
+              : scores.home !== "" &&
+                scores.away !== "" &&
+                scores.home === scores.away) && (
+              <div className="tiebreak-box">
+                <Field
+                  label={
+                    aggregate
+                      ? "Winner of the tied aggregate"
+                      : "Winner of the tied match"
+                  }
+                  error={
+                    fieldError?.field === "winner"
+                      ? fieldError.message
+                      : undefined
+                  }
+                >
+                  <select
+                    id={`${match.id}-winner`}
+                    value={scores.winner}
+                    onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                      change("winner", event.currentTarget.value)
+                    }
+                  >
+                    <option value="">Choose winner</option>
+                    <option value={decisionHome?.id}>
+                      {decisionHome?.name}
+                    </option>
+                    <option value={decisionAway?.id}>
+                      {decisionAway?.name}
+                    </option>
+                  </select>
+                </Field>
+                <div className="form-row">
+                  <Field
+                    label={`${decisionHome?.name} tiebreak (optional)`}
+                    error={
+                      fieldError?.field === "homeTiebreak"
+                        ? fieldError.message
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      id={`${match.id}-homeTiebreak`}
+                      value={scores.homeTiebreak}
+                      onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                        change("homeTiebreak", event.currentTarget.value)
+                      }
+                    />
+                  </Field>
+                  <Field
+                    label={`${decisionAway?.name} tiebreak (optional)`}
+                    error={
+                      fieldError?.field === "awayTiebreak"
+                        ? fieldError.message
+                        : undefined
+                    }
+                  >
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      id={`${match.id}-awayTiebreak`}
+                      value={scores.awayTiebreak}
+                      onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                        change("awayTiebreak", event.currentTarget.value)
+                      }
+                    />
+                  </Field>
+                </div>
+              </div>
             )}
-          >
-            <summary>Match stats (optional)</summary>
-            <p>Leave any stat blank if it was not recorded.</p>
-            <div className="match-stat-fields">
-              {statsDraft.map((stat: MatchStatDraft): ReactElement => (
-                <fieldset key={stat.key}>
-                  <legend>
-                    {stat.label}
-                    {stat.unit === "percent" ? " (%)" : ""}
-                  </legend>
-                  <div className="form-row">
+          {t.game === "EFOOTBALL" && (
+            <section className="upload-section" aria-label="Scorecard import">
+              <div className="scorecard-actions">
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={pending}
+                  onClick={(): void => scorecardInput.current?.click()}
+                >
+                  <Upload size={17} aria-hidden="true" /> Import scorecard
+                </button>
+                <button
+                  type="button"
+                  className="button secondary small"
+                  disabled={
+                    !upload || pending || extraction.status === "reading"
+                  }
+                  onClick={read}
+                >
+                  {extraction.status === "reading" ? (
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className="spin"
+                      size={17}
+                    />
+                  ) : (
+                    <ScanLine aria-hidden="true" size={17} />
+                  )}
+                  {extraction.status === "reading"
+                    ? "Reading scorecard…"
+                    : "Read scorecard"}
+                </button>
+                <input
+                  ref={scorecardInput}
+                  className="sr-only"
+                  tabIndex={-1}
+                  aria-label="Scorecard image"
+                  type="file"
+                  disabled={pending}
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={chooseFile}
+                />
+              </div>
+              {upload && (
+                <>
+                  <p className="scorecard-filename">{upload.file.name}</p>
+                  <img
+                    className="scorecard-preview"
+                    width={480}
+                    height={180}
+                    src={upload.url}
+                    alt="Uploaded match scorecard"
+                  />
+                </>
+              )}
+              {extraction.status === "reading" && (
+                <p role="status">
+                  Reading the scorecard. You can keep editing or replace the
+                  file.
+                </p>
+              )}
+              {extraction.status === "failure" && (
+                <p className="inline-error" role="alert">
+                  {extraction.error}
+                </p>
+              )}
+              {suggestion &&
+                (!suggestion.matched || suggestion.warnings.length > 0) && (
+                  <div className="extraction-review">
+                    {!suggestion.matched && (
+                      <p role="status">Map the observed sides to your teams.</p>
+                    )}
+                    {suggestion.warnings.length > 0 &&
+                      extraction.status === "suggested" &&
+                      extraction.reversed && (
+                        <p className="warning-text">
+                          Warnings describe the original screenshot sides.
+                        </p>
+                      )}
+                    {suggestion.warnings.map(
+                      (warning: string, index: number): ReactElement => (
+                        <p className="warning-text" key={`${index}:${warning}`}>
+                          {warning}
+                        </p>
+                      ),
+                    )}
+                    {!suggestion.matched && (
+                      <>
+                        <p>
+                          {suggestion.observedSides
+                            .map(
+                              (
+                                side: Suggestion["observedSides"][number],
+                              ): string =>
+                                `${side.name ?? "Unreadable name"} (${side.score ?? "?"})`,
+                            )
+                            .join(" vs ")}
+                        </p>
+                        <Field label="Which side is the first team?">
+                          <select
+                            value={mapping}
+                            onChange={(
+                              event: ChangeEvent<HTMLSelectElement>,
+                            ): void => setMapping(event.currentTarget.value)}
+                          >
+                            <option value="">Choose the mapping</option>
+                            <option value="normal">
+                              First observed side is {home.name}
+                            </option>
+                            <option value="reverse">
+                              First observed side is {away.name}
+                            </option>
+                          </select>
+                        </Field>
+                        <button
+                          type="button"
+                          className="button secondary small"
+                          disabled={!mapping}
+                          onClick={(): void =>
+                            apply(suggestion, mapping === "reverse")
+                          }
+                        >
+                          Apply mapped scores
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+            </section>
+          )}
+          {base.t.statsEnabled && (
+            <section className="match-stats-editor" aria-label="Match stats">
+              <h3>Match stats (optional)</h3>
+              <div className="match-stat-fields">
+                {statsDraft.map((stat: MatchStatDraft): ReactElement => (
+                  <div
+                    className="match-stat-row"
+                    role="group"
+                    aria-label={stat.label}
+                    key={stat.key}
+                  >
                     <Field label={home.name}>
                       <input
                         aria-label={`${home.name} ${stat.label}`}
                         type="number"
+                        inputMode="numeric"
                         min={0}
                         max={stat.unit === "percent" ? 100 : 9999}
                         step={1}
@@ -665,10 +827,15 @@ export function MatchEditor({
                         }}
                       />
                     </Field>
+                    <span className="match-stat-name">
+                      {stat.label}
+                      {stat.unit === "percent" ? " (%)" : ""}
+                    </span>
                     <Field label={away.name}>
                       <input
                         aria-label={`${away.name} ${stat.label}`}
                         type="number"
+                        inputMode="numeric"
                         min={0}
                         max={stat.unit === "percent" ? 100 : 9999}
                         step={1}
@@ -694,229 +861,100 @@ export function MatchEditor({
                       />
                     </Field>
                   </div>
-                </fieldset>
-              ))}
-            </div>
-          </details>
-        )}
-        {t.game === "EFOOTBALL" && (
-          <div className="upload-section">
-            <h3>
-              <ScanLine aria-hidden="true" size={18} /> Have a scorecard?
-            </h3>
-            <p>
-              Upload it to read scores and match stats, then review before
-              saving.
-            </p>
-            <label className="upload-drop">
-              <Upload aria-hidden="true" size={24} />
-              <span>{upload?.file.name ?? "Choose a scorecard image"}</span>
-              <small>JPEG, PNG or WebP · up to 10 MB</small>
-              <input
-                aria-label="Scorecard image"
-                type="file"
-                disabled={pending}
-                accept="image/jpeg,image/png,image/webp"
-                onChange={chooseFile}
-              />
-            </label>
-            {upload && (
-              <>
-                <img
-                  className="scorecard-preview"
-                  width={480}
-                  height={180}
-                  src={upload.url}
-                  alt="Uploaded match scorecard"
-                />
-                <button
-                  type="button"
-                  className="button secondary full"
-                  disabled={pending || extraction.status === "reading"}
-                  onClick={read}
-                >
-                  {extraction.status === "reading" ? (
-                    <LoaderCircle
-                      aria-hidden="true"
-                      className="spin"
-                      size={17}
-                    />
-                  ) : (
-                    <ScanLine aria-hidden="true" size={17} />
-                  )}{" "}
-                  {extraction.status === "reading"
-                    ? "Reading scorecard…"
-                    : "Read scorecard"}
-                </button>
-              </>
-            )}
-            {extraction.status === "reading" && (
-              <p role="status">
-                Reading the scorecard. You can keep editing or replace the file.
-              </p>
-            )}
-            {extraction.status === "failure" && (
-              <p className="inline-error" role="alert">
-                {extraction.error}
-              </p>
-            )}
-            {suggestion && (
-              <div className="extraction-review">
-                <p role="status">
-                  {suggestion.matched
-                    ? "Suggested scores filled. Review them above."
-                    : "Map the observed sides to your teams."}
-                </p>
-                {suggestion.warnings.length > 0 &&
-                  extraction.status === "suggested" &&
-                  extraction.reversed && (
-                    <p className="warning-text">
-                      Warnings describe the original screenshot sides.
-                    </p>
-                  )}
-                {suggestion.warnings.map(
-                  (warning: string, index: number): ReactElement => (
-                    <p className="warning-text" key={`${index}:${warning}`}>
-                      {warning}
-                    </p>
-                  ),
-                )}
-                <ExtractedStats
-                  stats={suggestion.stats ?? []}
-                  homeName={home.name}
-                  awayName={away.name}
-                  reversed={
-                    extraction.status === "suggested" && extraction.reversed
-                  }
-                />
-                {!suggestion.matched && (
-                  <>
-                    <p>
-                      {suggestion.observedSides
-                        .map(
-                          (side: Suggestion["observedSides"][number]): string =>
-                            `${side.name ?? "Unreadable name"} (${side.score ?? "?"})`,
-                        )
-                        .join(" vs ")}
-                    </p>
-                    <Field label="Which side is the first team?">
-                      <select
-                        value={mapping}
-                        onChange={(
-                          event: ChangeEvent<HTMLSelectElement>,
-                        ): void => setMapping(event.currentTarget.value)}
-                      >
-                        <option value="">Choose the mapping</option>
-                        <option value="normal">
-                          First observed side is {home.name}
-                        </option>
-                        <option value="reverse">
-                          First observed side is {away.name}
-                        </option>
-                      </select>
-                    </Field>
-                    <button
-                      type="button"
-                      className="button secondary small"
-                      disabled={!mapping}
-                      onClick={(): void =>
-                        apply(suggestion, mapping === "reverse")
-                      }
-                    >
-                      Apply mapped scores
-                    </button>
-                  </>
-                )}
+                ))}
               </div>
-            )}
-          </div>
-        )}
-        {state.status === "failure" && (
-          <div className="inline-error" role="alert">
-            {state.error}
-            {state.expired && (
-              <Link
-                to={`/auth/login?returnTo=${encodeURIComponent(`/manage/${t.id}`)}`}
-              >
-                Sign in again
-              </Link>
-            )}
-          </div>
-        )}
-        {state.status === "conflict" && (
-          <ConflictReview
-            local={scores}
-            latest={
-              state.latest
-                ? scoresFromMatch(state.latest.match, state.latest.t)
-                : "Fixture unavailable"
-            }
-            error={state.error}
-            onUseLatest={(): void => {
-              if (!state.latest) return;
-              setBase(state.latest);
-              const value = scoresFromMatch(state.latest.match, state.latest.t);
-              setScores(value);
-              setInitial(JSON.stringify(value));
-              touched.current.clear();
-              setState({ status: "editing" });
-            }}
-            onReapply={(): void => {
-              if (!state.latest) return;
-              try {
-                if (
-                  state.latest.match.homeId !== match.homeId ||
-                  state.latest.match.awayId !== match.awayId
-                )
-                  throw new Error(
-                    "The opponents changed. Use the latest fixture before editing.",
-                  );
-                resultPayload(
-                  scores,
+            </section>
+          )}
+          {state.status === "failure" && (
+            <div className="inline-error" role="alert">
+              {state.error}
+              {state.expired && (
+                <Link
+                  to={`/auth/login?returnTo=${encodeURIComponent(`/manage/${t.id}`)}`}
+                >
+                  Sign in again
+                </Link>
+              )}
+            </div>
+          )}
+          {state.status === "conflict" && (
+            <ConflictReview
+              local={scores}
+              latest={
+                state.latest
+                  ? scoresFromMatch(state.latest.match, state.latest.t)
+                  : "Fixture unavailable"
+              }
+              error={state.error}
+              onUseLatest={(): void => {
+                if (!state.latest) return;
+                setBase(state.latest);
+                const value = scoresFromMatch(
                   state.latest.match,
-                  state.latest.t.revision,
-                  false,
                   state.latest.t,
                 );
-                setBase(state.latest);
+                setScores(value);
+                setInitial(JSON.stringify(value));
+                touched.current.clear();
                 setState({ status: "editing" });
-                toast("Draft reapplied. Review it and save separately.");
-              } catch (error: unknown) {
-                setState({ ...state, error: errorMessage(error) });
-              }
-            }}
-          />
-        )}
-        {confirmation && (
-          <div className="reset-preview">
-            <h3>
-              <AlertTriangle aria-hidden="true" size={19} /> This correction
-              changes progression
-            </h3>
-            <p>{confirmation.impact.reason}</p>
-            <p>
-              {confirmation.impact.matchIds.length} downstream fixtures will be
-              removed. Their results remain in history.
-            </p>
-            <div className="action-row">
-              <button
-                type="button"
-                className="button danger"
-                disabled={pending}
-                onClick={confirm}
-              >
-                Confirm correction & reset
-              </button>
-              <button
-                type="button"
-                className="button secondary"
-                onClick={(): void => setState({ status: "editing" })}
-              >
-                Cancel reset
-              </button>
+              }}
+              onReapply={(): void => {
+                if (!state.latest) return;
+                try {
+                  if (
+                    state.latest.match.homeId !== match.homeId ||
+                    state.latest.match.awayId !== match.awayId
+                  )
+                    throw new Error(
+                      "The opponents changed. Use the latest fixture before editing.",
+                    );
+                  resultPayload(
+                    scores,
+                    state.latest.match,
+                    state.latest.t.revision,
+                    false,
+                    state.latest.t,
+                  );
+                  setBase(state.latest);
+                  setState({ status: "editing" });
+                  toast("Draft reapplied. Review it and save separately.");
+                } catch (error: unknown) {
+                  setState({ ...state, error: errorMessage(error) });
+                }
+              }}
+            />
+          )}
+          {confirmation && (
+            <div className="reset-preview">
+              <h3>
+                <AlertTriangle aria-hidden="true" size={19} /> This correction
+                changes progression
+              </h3>
+              <p>{confirmation.impact.reason}</p>
+              <p>
+                {confirmation.impact.matchIds.length} downstream fixtures will
+                be removed. Their results remain in history.
+              </p>
+              <div className="action-row">
+                <button
+                  type="button"
+                  className="button danger"
+                  disabled={pending}
+                  onClick={confirm}
+                >
+                  Confirm correction & reset
+                </button>
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={(): void => setState({ status: "editing" })}
+                >
+                  Cancel reset
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
         <div className="modal-actions">
           {base.match.homeScore !== null && (
             <button
@@ -940,6 +978,21 @@ export function MatchEditor({
           >
             Cancel
           </button>
+          {onNext && (
+            <button
+              type="button"
+              className="button secondary"
+              disabled={
+                pending ||
+                extraction.status === "reading" ||
+                Boolean(confirmation) ||
+                state.status === "conflict"
+              }
+              onClick={(): Promise<void> => submit(false, true)}
+            >
+              Save & next match
+            </button>
+          )}
           <button
             type="submit"
             className="button"

@@ -46,12 +46,17 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
     .getByRole("link", { name: /Large league with long team names/ })
     .click();
   const started = Date.now();
-  await page.getByRole("tab", { name: "Overview", exact: true }).focus();
-  await page.keyboard.press("ArrowRight");
+  if (info.project.name === "mobile") {
+    await page.getByRole("tab", { name: "Standings", exact: true }).focus();
+    await page.keyboard.press("ArrowLeft");
+  } else {
+    await page.getByRole("tab", { name: "Overview", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+  }
   await expect(
     page.getByRole("tab", { name: "Fixtures", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".fixture-row")).toHaveCount(50);
+  await expect(page.locator(".fixture-row")).toHaveCount(32);
   console.log(
     `${info.project.name}: 64-team fixture tab ${Date.now() - started}ms`,
   );
@@ -60,10 +65,13 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
     path: `e2e/screenshots/${info.project.name}-fixtures.png`,
     fullPage: false,
   });
+  await page.getByRole("button", { name: "Tournament actions" }).click();
   await page.getByRole("link", { name: /Public page/ }).click();
+  await page.getByRole("button", { name: "Tournament information" }).click();
   await expect(
     page.getByText("Public view · refreshes every 15s"),
   ).toBeVisible();
+  await page.keyboard.press("Escape");
   await checkAccessibility(page);
   await page.evaluate((): void => {
     document.documentElement.style.fontSize = "200%";
@@ -159,8 +167,12 @@ test("league setup, dirty navigation, result suggestions, clear confirmation and
   await page
     .getByLabel("Scorecard image")
     .setInputFiles("e2e/fixtures/scorecard.png");
+  const readResponse = page.waitForResponse("**/extract-score");
   await page.getByRole("button", { name: /Read scorecard/ }).click();
-  await expect(page.getByText(/Suggested scores/)).toBeVisible();
+  expect((await readResponse).ok()).toBe(true);
+  await expect(
+    page.getByRole("button", { name: "Read scorecard", exact: true }),
+  ).toBeEnabled();
   await page.getByRole("button", { name: "Save result", exact: true }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const saved = page.getByRole("button", { name: /Edit result:/ });
@@ -245,6 +257,8 @@ test("cup setup and a destructive correction require reviewed reset confirmation
     .getByRole("button", { name: "Confirm correction & reset" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  if (info.project.name === "mobile")
+    await page.getByRole("button", { name: /More sections/ }).click();
   await page.getByRole("tab", { name: "Revision history" }).click();
   await expect(
     page.getByText("Progression reset", { exact: true }),
@@ -309,6 +323,9 @@ test("knockout-only import, rename, fixed bracket and two-leg aggregate decision
   await page.getByRole("button", { name: /Review & start/ }).click();
   await page
     .getByRole("button", { name: "Start tournament", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Tournament actions", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "Add teams", exact: true }),
@@ -397,6 +414,9 @@ test("ongoing league name and multiple team additions preserve existing fixtures
   await page
     .getByRole("button", { name: "Start tournament", exact: true })
     .click();
+  await page
+    .getByRole("button", { name: "Tournament actions", exact: true })
+    .click();
   await page.getByRole("button", { name: "Add teams", exact: true }).click();
   await page
     .getByRole("textbox", { name: "New team 1 name", exact: true })
@@ -413,6 +433,11 @@ test("ongoing league name and multiple team additions preserve existing fixtures
     .getByRole("button", { name: "Add teams and schedule matches" })
     .click();
   await page.getByRole("tab", { name: "Fixtures", exact: true }).click();
+  for (const heading of await page
+    .locator('.round-heading[aria-expanded="false"]')
+    .all()) {
+    await heading.click();
+  }
   await expect(page.locator(".fixture-row")).toHaveCount(6);
   await page.screenshot({
     path: `e2e/screenshots/${info.project.name}-expanded-league.png`,

@@ -125,49 +125,44 @@ test("saves swapped scores only after Save result with the original match identi
   cache.clear();
 });
 
-test("swaps OCR scores and stat columns, restores them on a second swap, and resets new-image orientation", async (): Promise<void> => {
+test("swaps imported scores and editable stats without a duplicate review table", async (): Promise<void> => {
   vi.spyOn(api, "extract").mockResolvedValue(swapSuggestion);
-  const cache = showSwapEditor();
+  const cache = showSwapEditor(match, { ...tournament, statsEnabled: true });
   await readSwapImage();
-  await screen.findByRole("table", { name: "Extracted match stats" });
-  expect(
-    screen.getByRole("columnheader", { name: "Home · Alpha" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByRole("columnheader", { name: "Away · Beta" }),
-  ).toBeInTheDocument();
-  const swap = screen.getByRole("button", {
-    name: "Swap results",
+  const homeStat = screen.getByRole("spinbutton", { name: "Alpha Possession" });
+  const awayStat = screen.getByRole("spinbutton", { name: "Beta Possession" });
+  await waitFor((): void => {
+    expect(homeStat).toHaveValue(55);
   });
+  const swap = screen.getByRole("button", { name: "Swap results" });
   await userEvent.click(swap);
   expect(screen.getByRole("spinbutton", { name: "Alpha score" })).toHaveValue(
     2,
   );
   expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(1);
+  expect(homeStat).toHaveValue(45);
+  expect(awayStat).toHaveValue(55);
   expect(
-    screen.getByRole("row", { name: "Possession 45% 55%" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByRole("row", { name: "Offsides 0 Unreadable" }),
-  ).toBeInTheDocument();
-  expect(screen.getByText(/Screenshot sides reversed/)).toBeInTheDocument();
+    screen.getByRole("spinbutton", { name: "Alpha Offsides" }),
+  ).toHaveValue(0);
+  expect(screen.getByRole("spinbutton", { name: "Beta Offsides" })).toHaveValue(
+    null,
+  );
   await userEvent.click(swap);
-  expect(
-    screen.getByRole("row", { name: "Possession 55% 45%" }),
-  ).toBeInTheDocument();
-  expect(
-    screen.queryByText(/Screenshot sides reversed/),
-  ).not.toBeInTheDocument();
+  expect(homeStat).toHaveValue(55);
+  expect(awayStat).toHaveValue(45);
   await userEvent.click(swap);
   await readSwapImage("replacement.png");
-  await screen.findByRole("row", { name: "Possession 55% 45%" });
+  await waitFor((): void => {
+    expect(
+      screen.getByRole("button", { name: "Read scorecard" }),
+    ).toBeEnabled();
+  });
+  expect(homeStat).toHaveValue(45);
+  expect(awayStat).toHaveValue(55);
   expect(
-    screen.queryByText(/Screenshot sides reversed/),
+    screen.queryByRole("table", { name: "Extracted match stats" }),
   ).not.toBeInTheDocument();
-  expect(screen.getByRole("spinbutton", { name: "Alpha score" })).toHaveValue(
-    2,
-  );
-  expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(1);
   cache.clear();
 });
 
@@ -694,7 +689,11 @@ test("an active extraction fills only untouched fields", async (): Promise<void>
       warnings: [],
     });
   });
-  await screen.findByText(/Suggested scores filled/);
+  await waitFor((): void => {
+    expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(
+      5,
+    );
+  });
   expect(home).toHaveValue(9);
   expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(5);
   cache.clear();
@@ -805,7 +804,7 @@ test("invalid empty scores mark and focus the first field without starting a req
   cache.clear();
 });
 
-test("shows extracted stats for both sides without saving them", async (): Promise<void> => {
+test("imports editable stats without summary, duplicate table, or obsolete disclaimer", async (): Promise<void> => {
   vi.spyOn(api, "extract").mockResolvedValue({
     matched: true,
     observedSides: [
@@ -835,7 +834,7 @@ test("shows extracted stats for both sides without saving them", async (): Promi
     <QueryClientProvider client={cache}>
       <MemoryRouter>
         <MatchEditor
-          t={tournament}
+          t={{ ...tournament, statsEnabled: true }}
           match={match}
           onClose={vi.fn()}
           onSaved={vi.fn()}
@@ -848,16 +847,30 @@ test("shows extracted stats for both sides without saving them", async (): Promi
     new File(["image"], "stats.png", { type: "image/png" }),
   );
   await userEvent.click(screen.getByRole("button", { name: "Read scorecard" }));
+  await waitFor((): void => {
+    expect(
+      screen.getByRole("spinbutton", { name: "Alpha Possession" }),
+    ).toHaveValue(55);
+  });
   expect(
-    await screen.findByRole("table", { name: "Extracted match stats" }),
-  ).toBeInTheDocument();
+    screen.getByRole("spinbutton", { name: "Beta Possession" }),
+  ).toHaveValue(45);
+  expect(screen.getByRole("spinbutton", { name: "Alpha Passes" })).toHaveValue(
+    115,
+  );
+  expect(screen.getByRole("spinbutton", { name: "Beta Passes" })).toHaveValue(
+    null,
+  );
+  expect(screen.getByRole("spinbutton", { name: "Beta Offsides" })).toHaveValue(
+    0,
+  );
+  expect(screen.queryByText(/Suggested scores filled/)).not.toBeInTheDocument();
   expect(
-    screen.getByRole("row", { name: "Possession 55% 45%" }),
-  ).toBeInTheDocument();
+    screen.queryByRole("table", { name: "Extracted match stats" }),
+  ).not.toBeInTheDocument();
   expect(
-    screen.getByRole("row", { name: "Passes 115 Unreadable" }),
-  ).toBeInTheDocument();
-  expect(screen.getByRole("row", { name: "Offsides 1 0" })).toBeInTheDocument();
+    screen.queryByText(/Stats are shown for review only/),
+  ).not.toBeInTheDocument();
   expect(save).not.toHaveBeenCalled();
   cache.clear();
 });
@@ -886,7 +899,6 @@ test("saves optional manually entered stats with the match result", async (): Pr
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  await userEvent.click(screen.getByText("Match stats (optional)"));
   await userEvent.type(
     screen.getByRole("spinbutton", { name: "Alpha Shots" }),
     "7",
@@ -929,5 +941,136 @@ test("CODM tournaments offer manual scores without scorecard upload", async (): 
   expect(home).toHaveValue(9);
   expect(screen.getByRole("button", { name: "Save result" })).toBeEnabled();
   expect(extract).not.toHaveBeenCalled();
+  cache.clear();
+});
+
+test("scorecard buttons directly choose an image and retain its preview", async (): Promise<void> => {
+  const cache = showSwapEditor();
+  const input = screen.getByLabelText("Scorecard image");
+  const choose = vi.spyOn(input, "click");
+  const read = screen.getByRole("button", { name: "Read scorecard" });
+  expect(read).toBeDisabled();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Import scorecard" }),
+  );
+  expect(choose).toHaveBeenCalled();
+  expect(
+    screen.queryByText("Choose a scorecard image"),
+  ).not.toBeInTheDocument();
+  await userEvent.upload(
+    input,
+    new File(["image"], "score.png", { type: "image/png" }),
+  );
+  expect(read).toBeEnabled();
+  expect(
+    screen.getByRole("img", { name: "Uploaded match scorecard" }),
+  ).toBeVisible();
+  cache.clear();
+});
+test("enabled match stats are immediately editable without an expander", async (): Promise<void> => {
+  const cache = showSwapEditor(match, { ...tournament, statsEnabled: true });
+  expect(screen.getByRole("spinbutton", { name: "Alpha Shots" })).toBeVisible();
+  expect(screen.getByRole("spinbutton", { name: "Beta Shots" })).toBeVisible();
+  expect(
+    screen.getByRole("heading", { name: "Match stats (optional)" }),
+  ).toBeVisible();
+  expect(screen.getByRole("spinbutton", { name: "Alpha score" })).toHaveValue(
+    2,
+  );
+  cache.clear();
+});
+
+test("Save & next match retains a failed draft and never advances early", async (): Promise<void> => {
+  const cache = new QueryClient();
+  const onNext = vi.fn();
+  const onClose = vi.fn();
+  vi.spyOn(api, "impact").mockResolvedValue({
+    requiresReset: false,
+    reason: null,
+    roundIds: [],
+    matchIds: [],
+    resetQualification: false,
+    impactToken: "impact",
+    tournamentRevision: 1,
+  });
+  const result = vi
+    .spyOn(api, "result")
+    .mockRejectedValue(new Error("Please retry saving"));
+  render(
+    <QueryClientProvider client={cache}>
+      <MemoryRouter>
+        <MatchEditor
+          t={tournament}
+          match={match}
+          onClose={onClose}
+          onSaved={vi.fn()}
+          onNext={onNext}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Save & next match" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Please retry saving",
+  );
+  expect(screen.getByLabelText("Alpha score")).toHaveValue(2);
+  expect(onNext).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+  result.mockResolvedValue(tournament);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Save & next match" }),
+  );
+  await waitFor((): void => expect(onNext).toHaveBeenCalledWith(tournament));
+  expect(onClose).not.toHaveBeenCalled();
+  cache.clear();
+});
+
+test("Save & next match prevents duplicate saves and waits for the response", async (): Promise<void> => {
+  let finish: ((value: Tournament) => void) | undefined;
+  const response = new Promise<Tournament>(
+    (resolve: (value: Tournament) => void): void => {
+      finish = resolve;
+    },
+  );
+  const cache = new QueryClient();
+  const onNext = vi.fn();
+  vi.spyOn(api, "impact").mockResolvedValue({
+    requiresReset: false,
+    reason: null,
+    roundIds: [],
+    matchIds: [],
+    resetQualification: false,
+    impactToken: "impact",
+    tournamentRevision: 1,
+  });
+  const result = vi.spyOn(api, "result").mockReturnValue(response);
+  render(
+    <QueryClientProvider client={cache}>
+      <MemoryRouter>
+        <MatchEditor
+          t={tournament}
+          match={match}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          onNext={onNext}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await userEvent.dblClick(
+    screen.getByRole("button", { name: "Save & next match" }),
+  );
+  expect(result).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole("button", { name: "Save & next match" }),
+  ).toBeDisabled();
+  expect(onNext).not.toHaveBeenCalled();
+  await act(async (): Promise<void> => {
+    finish?.(tournament);
+    await response;
+  });
+  expect(onNext).toHaveBeenCalledTimes(1);
   cache.clear();
 });
