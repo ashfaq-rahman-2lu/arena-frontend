@@ -1,3 +1,7 @@
+import { TournamentHeader } from "./tournament-header";
+import { TournamentNavigation } from "./tournament-navigation";
+import { StandingsTable } from "./standings-table";
+import { FixtureRounds } from "./fixture-rounds";
 import { TournamentTools } from "./tournament-tools";
 import { KnockoutBoard } from "./knockout-board";
 import { KnockoutPairing } from "./knockout-pairing";
@@ -11,19 +15,15 @@ import type {
 } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   History,
   Pencil,
   Play,
   Settings2,
-  ShieldCheck,
   Swords,
-  Trophy,
-  Users,
 } from "lucide-react";
-import { lazy, Suspense, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
 import type { components } from "../../generated/api";
 import type { Entrant } from "../../shared/api/arena-api";
@@ -48,7 +48,6 @@ import {
   Modal,
   ShareButton,
   Spinner,
-  StatusBadge,
   TeamMark,
   useSession,
   useToast,
@@ -59,6 +58,11 @@ import {
   RenameModal,
   TieModal,
 } from "./management-dialogs";
+const ResultEntry = lazy(
+  async (): Promise<{
+    default: typeof import("./result-entry").ResultEntry;
+  }> => ({ default: (await import("./result-entry")).ResultEntry }),
+);
 const MatchEditor = lazy(
   async (): Promise<{
     default: typeof import("../score-editing/match-editor").MatchEditor;
@@ -80,7 +84,17 @@ export function TournamentPage({
   const query = useCompetition(admin, ownerId, id ?? "", publicId ?? "");
   const mutation = useTournamentMutation(ownerId);
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") ?? "overview";
+  const defaultTab =
+    query.data?.format === "KNOCKOUT" ? "knockout" : "standings";
+  const requestedTab = params.get("tab");
+  const tab =
+    !requestedTab || requestedTab === "overview" ? defaultTab : requestedTab;
+  useEffect((): void => {
+    if (!query.data || params.get("tab") !== "overview") return;
+    const next = new URLSearchParams(params);
+    next.set("tab", defaultTab);
+    setParams(next, { replace: true });
+  }, [query.data, params, setParams, defaultTab]);
   const statsQuery = useQuery({
     queryKey: [
       "team-stats",
@@ -99,19 +113,23 @@ export function TournamentPage({
     setParams((old: URLSearchParams): URLSearchParams => {
       const next = new URLSearchParams(old);
       next.set(name, value);
-      if (["team", "status", "stage"].includes(name))
-        next.set("fixturesPage", "1");
+      if (["team", "status", "stage"].includes(name)) next.delete("round");
       return next;
     });
   };
   const setTab = (value: string): void => setParam("tab", value);
-  const fixturePage = Math.max(1, Number(params.get("fixturesPage")) || 1);
   const historyPage = Math.max(1, Number(params.get("historyPage")) || 1);
   const [dialogBase, setDialogBase] = useState<Tournament | null>(null);
   const [previewPage, setPreviewPage] = useState(1);
   const [actionError, setActionError] = useState(""),
     [conflicted, setConflicted] = useState(false),
     [dialogRevision, setDialogRevision] = useState<number | null>(null);
+  const [resultEntry, setResultEntry] = useState<boolean>(false);
+  const resultTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeResultEntry = (): void => {
+    setResultEntry(false);
+    resultTriggerRef.current?.focus();
+  };
   const [selected, setSelected] = useState<Match | null>(null),
     [showPreview, setShowPreview] = useState(false),
     [showPairing, setShowPairing] = useState(false),
@@ -228,12 +246,8 @@ export function TournamentPage({
   const t = query.data;
   if (!t) return <Spinner />;
   const byId = new Map(
-      t.entrants.map((e: Entrant): [string, Entrant] => [e.id, e]),
-    ),
-    finished = t.matches.filter(
-      (m: Match): boolean => m.homeScore !== null,
-    ).length,
-    champion = t.entrants.find((e: Entrant): boolean => e.id === t.championId);
+    t.entrants.map((e: Entrant): [string, Entrant] => [e.id, e]),
+  );
   const name = (entrantId: string): string =>
     byId.get(entrantId)?.name || "Team";
   const matchList = t.matches.filter(
@@ -245,6 +259,23 @@ export function TournamentPage({
         (statusFilter === "PLAYED") === (m.homeScore !== null)) &&
       (stageFilter === "ALL" || m.stage === stageFilter),
   );
+  const entryMatches = (value: Tournament): Match[] =>
+    value.matches.filter(
+      (entry: Match): boolean =>
+        (!entrantFilter ||
+          entry.homeId === entrantFilter ||
+          entry.awayId === entrantFilter) &&
+        (stageFilter === "ALL" || entry.stage === stageFilter) &&
+        (!params.get("round") ||
+          params.get("round") === "ALL" ||
+          `${entry.stage}:${entry.round}` === params.get("round")),
+    );
+  const nextMatch = selected
+    ? entryMatches(t).find(
+        (entry: Match): boolean =>
+          entry.id !== selected.id && entry.homeScore === null,
+      )
+    : undefined;
   const renderStandings = (): React.JSX.Element[] =>
     t.standings.map(
       (table: components["schemas"]["ScopeStanding"]): React.JSX.Element => {
@@ -260,110 +291,7 @@ export function TournamentPage({
               .every((m: Match): boolean => m.homeScore !== null);
         return (
           <section className="panel standings-panel" key={table.scope}>
-            <div className="panel-head">
-              <h3>{group?.name || "League standings"}</h3>
-              {group && (
-                <span className="mono muted">
-                  TOP {group.qualifierCount} ADVANCE
-                </span>
-              )}
-            </div>
-            <div
-              className="table-scroll"
-              tabIndex={0}
-              role="region"
-              aria-label="Standings table"
-            >
-              <table>
-                <caption className="sr-only">
-                  {group?.name ?? "League"} standings
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col" className="rank-cell">
-                      #
-                    </th>
-                    <th scope="col">Team</th>
-                    <th scope="col" title="Played">
-                      P
-                    </th>
-                    <th scope="col" title="Wins">
-                      W
-                    </th>
-                    <th scope="col" title="Draws">
-                      D
-                    </th>
-                    <th scope="col" title="Losses">
-                      L
-                    </th>
-                    <th scope="col" title="Score for">
-                      SF
-                    </th>
-                    <th scope="col" title="Score against">
-                      SA
-                    </th>
-                    <th scope="col" title="Score difference">
-                      SD
-                    </th>
-                    <th scope="col">PTS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {table.rows.map(
-                    (
-                      r: components["schemas"]["Standing"],
-                      i: number,
-                    ): React.JSX.Element => (
-                      <tr
-                        key={r.entrantId}
-                        className={`${group && i < group.qualifierCount ? "qualifier" : ""} ${i === 0 ? "leader" : ""}`}
-                      >
-                        <td className="rank-cell">
-                          {r.rank.toString().padStart(2, "0")}
-                        </td>
-                        <td>
-                          <div className="table-team">
-                            <TeamMark
-                              name={r.name}
-                              index={t.entrants.findIndex(
-                                (e: Entrant): boolean => e.id === r.entrantId,
-                              )}
-                            />
-                            <strong>{r.name}</strong>
-                            {r.tieSignature &&
-                              !r.tieResolved &&
-                              r.played > 0 && (
-                                <span
-                                  className="tie-label"
-                                  title="Still tied on points, difference and score for"
-                                >
-                                  TIED
-                                </span>
-                              )}
-                          </div>
-                        </td>
-                        <td>{r.played}</td>
-                        <td>{r.won}</td>
-                        <td>{r.drawn}</td>
-                        <td>{r.lost}</td>
-                        <td>{r.scoreFor}</td>
-                        <td>{r.scoreAgainst}</td>
-                        <td>
-                          {r.difference > 0 ? "+" : ""}
-                          {r.difference}
-                        </td>
-                        <td className="points-cell">{r.points}</td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="table-note">
-              {t.winPoints} points for a win · {t.drawPoints} for a draw ·{" "}
-              {t.lossPoints} for a loss
-              {group ? " · Highlighted places qualify" : ""}
-            </div>
+            <StandingsTable tournament={t} standings={table} group={group} />
             {admin &&
               complete &&
               !t.qualification &&
@@ -426,6 +354,17 @@ export function TournamentPage({
         );
       },
     );
+  const openProgression = (
+    dialog: "preview" | "qualification" | "pairing",
+  ): void => {
+    setDialogRevision(t.revision);
+    setDialogBase(t);
+    setConflicted(false);
+    setActionError("");
+    if (dialog === "preview") setShowPreview(true);
+    else if (dialog === "qualification") setShowQualification(true);
+    else setShowPairing(true);
+  };
   const recovery: DialogRecoveryContext = {
     conflicted,
     error: actionError,
@@ -512,7 +451,7 @@ export function TournamentPage({
             onClick={(): void => setSelected(m)}
           >
             {played ? <Pencil size={13} /> : <PlusIcon />}
-            <span>{played ? "Edit" : "Add result"}</span>
+            <span>{played ? "Edit" : "Add"}</span>
           </button>
         ) : (
           <span className={`fixture-state ${played ? "lime-text" : "muted"}`}>
@@ -541,325 +480,120 @@ export function TournamentPage({
             {actionError}
           </p>
         )}
-      <Link className="back-link" to={admin ? "/dashboard" : "/"}>
-        <ArrowLeft size={15} />{" "}
-        {admin ? "My tournaments" : "Find another tournament"}
-      </Link>
-      <div className="tournament-heading">
-        <div>
-          <div className="eyebrow">
-            {t.game === "EFOOTBALL" ? "eFOOTBALL" : "CALL OF DUTY: MOBILE"}{" "}
-            <span>/</span>{" "}
-            {t.format === "LEAGUE"
-              ? "ROUND ROBIN LEAGUE"
-              : t.format === "KNOCKOUT"
-                ? "ONLY KNOCKOUT"
-                : "GROUP + KNOCKOUT"}
-          </div>
-          <h1>{t.name}</h1>
-          <div className="tournament-meta">
-            <StatusBadge status={t.status} />
-            <span className="mono">ID: {t.publicId}</span>
-            {admin ? (
-              <span>
-                <ShieldCheck size={14} /> Admin view
-              </span>
-            ) : (
-              <span>Public view · refreshes every 15s</span>
+      <TournamentHeader
+        tournament={t}
+        admin={admin}
+        resultTriggerRef={resultTriggerRef}
+        onEnter={
+          admin && t.status !== "DRAFT" && t.matches.length > 0
+            ? (): void => setResultEntry(true)
+            : undefined
+        }
+        actions={
+          <>
+            {admin && (
+              <>
+                <TournamentTools
+                  key={`${ownerId}:${t.id}`}
+                  t={t}
+                  ownerId={ownerId}
+                  onSaved={saved}
+                />
+                {admin && t.game === "EFOOTBALL" && !t.statsEnabled && (
+                  <button
+                    className="button secondary"
+                    type="button"
+                    disabled={pending}
+                    onClick={enableStats}
+                  >
+                    Enable match stats
+                  </button>
+                )}
+                {admin && t.statsEnabled && (
+                  <button
+                    className="button secondary"
+                    type="button"
+                    disabled={pending}
+                    onClick={archiveStats}
+                  >
+                    Archive stats
+                  </button>
+                )}
+              </>
             )}
-          </div>
-        </div>
-        <div className="action-row">
-          {admin && t.game === "EFOOTBALL" && !t.statsEnabled && (
-            <button
-              className="button secondary"
-              type="button"
-              disabled={pending}
-              onClick={enableStats}
-            >
-              Enable match stats
-            </button>
-          )}
-          {admin && t.statsEnabled && (
-            <button
-              className="button secondary"
-              type="button"
-              disabled={pending}
-              onClick={archiveStats}
-            >
-              Archive stats
-            </button>
-          )}
-          <ShareButton code={t.publicId} />
-          {admin && (
-            <Link className="text-button" to={`/t/${t.publicId}`}>
-              <ArrowUpRightIcon /> Public page
-            </Link>
-          )}
-        </div>
-      </div>
-      {admin && (
-        <TournamentTools
-          key={`${ownerId}:${t.id}`}
-          t={t}
-          ownerId={ownerId}
-          onSaved={saved}
-        />
-      )}
-      {champion && (
-        <div className="champion-banner">
-          <Trophy size={34} />
-          <div>
-            <div className="eyebrow">THE ARENA HAS A CHAMPION</div>
-            <h2>{champion.name}</h2>
-          </div>
-          <span className="mono">WELL PLAYED.</span>
-        </div>
-      )}
-      <div className="tournament-stats">
-        <div>
-          <Users size={19} />
-          <strong>{t.entrants.length}</strong>
-          <span>Teams</span>
-        </div>
-        <div>
-          <Swords size={19} />
-          <strong>{t.matches.length}</strong>
-          <span>Fixtures</span>
-        </div>
-        <div>
-          <Check size={19} />
-          <strong>{finished}</strong>
-          <span>Played</span>
-        </div>
-        <div className="completion-stat">
-          <div>
-            <span>Fixtures scored</span>
-            <strong>
-              {t.matches.length
-                ? Math.round((finished / t.matches.length) * 100)
-                : 0}
-              %
-            </strong>
-          </div>
-          <div className="progress">
-            <span
-              style={{
-                width: `${t.matches.length ? (finished / t.matches.length) * 100 : 0}%`,
-              }}
-            />
-          </div>
-        </div>
-      </div>
-      {admin && t.status === "DRAFT" && (
-        <div className="stage-banner">
-          <div>
-            <h3>Your arena is ready to take shape.</h3>
-            <p>
-              Review the matchups before starting. Teams and rules lock when
-              play begins.
-            </p>
-          </div>
-          <div className="action-row">
-            <Link
-              className="button secondary small"
-              to={`/manage/${t.id}/setup`}
-            >
-              <Settings2 size={15} /> Edit setup
-            </Link>
-            <button
-              className="button small"
-              onClick={(): void => {
-                setDialogRevision(t.revision);
-                setDialogBase(t);
-                setConflicted(false);
-                setActionError("");
-                setDialogBase(t);
-                setConflicted(false);
-                setActionError("");
-                setShowPreview(true);
-              }}
-            >
-              Review & start <ArrowRight size={15} />
-            </button>
-          </div>
-        </div>
-      )}
-      {admin &&
-        t.format === "WORLD_CUP" &&
-        t.status !== "DRAFT" &&
-        !t.qualification && (
-          <div className="stage-banner">
-            <div>
-              <h3>
-                {t.qualificationPreview
-                  ? "Your qualifiers are ready."
-                  : "The group stage is in play."}
-              </h3>
-              <p>
-                {t.qualificationPreview
-                  ? "Review the advancing teams, then build the first knockout round."
-                  : "Finish all group fixtures and resolve ties across qualification places."}
-              </p>
-            </div>
-            {t.qualificationPreview && (
+            <ShareButton code={t.publicId} />
+            {admin && (
+              <Link className="text-button" to={`/t/${t.publicId}`}>
+                <ArrowUpRightIcon /> Public page
+              </Link>
+            )}
+          </>
+        }
+      >
+        {admin && (
+          <div className="competition-progress-actions">
+            {t.status === "DRAFT" && (
+              <>
+                <Link className="text-button" to={`/manage/${t.id}/setup`}>
+                  <Settings2 aria-hidden="true" size={15} /> Edit setup
+                </Link>
+                <button
+                  type="button"
+                  className="button small"
+                  onClick={(): void => openProgression("preview")}
+                >
+                  Review & start <ArrowRight aria-hidden="true" size={15} />
+                </button>
+              </>
+            )}
+            {t.format === "WORLD_CUP" &&
+              t.status !== "DRAFT" &&
+              !t.qualification &&
+              t.qualificationPreview && (
+                <button
+                  type="button"
+                  className="button secondary small"
+                  onClick={(): void => openProgression("qualification")}
+                >
+                  Review qualifiers <ArrowRight aria-hidden="true" size={15} />
+                </button>
+              )}
+            {t.knockoutEligibility && t.rounds[0]?.method !== "FIXED" && (
               <button
-                className="button small"
-                onClick={(): void => {
-                  setDialogRevision(t.revision);
-                  setDialogBase(t);
-                  setConflicted(false);
-                  setActionError("");
-                  setDialogBase(t);
-                  setConflicted(false);
-                  setActionError("");
-                  setShowQualification(true);
-                }}
+                type="button"
+                className="button secondary small"
+                onClick={(): void => openProgression("pairing")}
               >
-                Review qualifiers <ArrowRight size={15} />
+                Choose pairings <ArrowRight aria-hidden="true" size={15} />
               </button>
             )}
           </div>
         )}
-      {admin && t.knockoutEligibility && t.rounds[0]?.method !== "FIXED" && (
-        <div className="stage-banner">
-          <div>
-            <h3>Build knockout round {t.knockoutEligibility.round}.</h3>
-            <p>
-              {t.knockoutEligibility.entrantIds.length} teams remain. Choose
-              their opponents
-              {t.knockoutEligibility.byeCount
-                ? ` and assign ${t.knockoutEligibility.byeCount} byes`
-                : ""}
-              .
-            </p>
-          </div>
-          <button
-            className="button small"
-            onClick={(): void => {
-              setDialogRevision(t.revision);
-              setDialogBase(t);
-              setConflicted(false);
-              setActionError("");
-              setDialogBase(t);
-              setConflicted(false);
-              setActionError("");
-              setShowPairing(true);
-            }}
-          >
-            Choose pairings <ArrowRight size={15} />
-          </button>
-        </div>
-      )}
-      <div
-        className="tabs tournament-tabs"
-        role="tablist"
-        aria-label="Tournament sections"
-      >
-        {[
-          ["overview", "Overview"],
-          ["fixtures", "Fixtures"],
-          ...(t.format !== "KNOCKOUT" ? [["standings", "Standings"]] : []),
-          ...(t.format !== "LEAGUE" ? [["knockout", "Knockout"]] : []),
-          ["teams", "Teams"],
-          ...(t.statsEnabled ? [["stats", "Team stats"]] : []),
-          ...(admin ? [["history", "Revision history"]] : []),
-        ].map(([value, label]: string[]): React.JSX.Element => (
-          <button
-            role="tab"
-            id={`tab-${value}`}
-            aria-controls={`panel-${value}`}
-            aria-selected={tab === value}
-            tabIndex={tab === value ? 0 : -1}
-            onKeyDown={(
-              event: React.KeyboardEvent<HTMLButtonElement>,
-            ): void => {
-              const controls = Array.from(
-                event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>(
-                  '[role="tab"]',
-                ) ?? [],
-              );
-              const index = controls.indexOf(event.currentTarget);
-              const next =
-                event.key === "ArrowRight"
-                  ? (index + 1) % controls.length
-                  : event.key === "ArrowLeft"
-                    ? (index + controls.length - 1) % controls.length
-                    : event.key === "Home"
-                      ? 0
-                      : event.key === "End"
-                        ? controls.length - 1
-                        : -1;
-              if (next >= 0) {
-                event.preventDefault();
-                controls[next].click();
-                controls[next].focus();
-              }
-            }}
-            className={tab === value ? "active" : ""}
-            onClick={(): void => setTab(value)}
-            key={value}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      </TournamentHeader>
+      <TournamentNavigation
+        tournament={t}
+        admin={admin}
+        active={tab}
+        onChange={setTab}
+      />
       <section
         role="tabpanel"
         id={`panel-${tab}`}
         aria-labelledby={`tab-${tab}`}
         tabIndex={0}
       >
-        {tab === "overview" && (
-          <div className="overview-grid">
-            <div>
-              {t.format === "KNOCKOUT" ? (
-                <KnockoutBoard t={t} admin={admin} onSelect={setSelected} />
-              ) : (
-                renderStandings()
-              )}
-            </div>
-            <aside className="panel competition-note">
-              <div className="eyebrow">THE GAME PLAN</div>
-              <h3>
-                {t.format === "KNOCKOUT"
-                  ? "Win the tie. Advance to the final."
-                  : t.format === "LEAGUE"
-                    ? "Every opponent. Every point."
-                    : "Win your place. Then survive."}
-              </h3>
-              <p>
-                {t.format === "KNOCKOUT"
-                  ? `${t.knockoutLegs} match(es) per knockout tie; ${t.knockoutFinalLegs} in the final. Each round finishes before the next begins.`
-                  : `${t.legs === 1 ? "Single" : "Double"} round robin${t.format === "WORLD_CUP" ? " within each group" : ""}. Matches can be played in any order within the active stage.`}
-              </p>
-              {t.groups.length > 0 && (
-                <div className="group-summary">
-                  {t.groups.map(
-                    (g: components["schemas"]["Group"]): React.JSX.Element => (
-                      <div key={g.id}>
-                        <span>{g.name}</span>
-                        <strong>Top {g.qualifierCount}</strong>
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
-              <div className="summary-rule" />
-              <p>
-                Ranked by points, score difference, then score for. Admins
-                resolve any remaining ties.
-              </p>
-              <button
-                className="text-button lime-text"
-                onClick={(): void => setTab("fixtures")}
-              >
-                See every fixture <ArrowRight size={15} />
-              </button>
-            </aside>
-          </div>
-        )}
-        {tab === "standings" && <div>{renderStandings()}</div>}
+        {tab === "standings" &&
+          (t.status === "DRAFT" &&
+          !t.standings.some(
+            (standing: Tournament["standings"][number]): boolean =>
+              standing.rows.length > 0,
+          ) ? (
+            <p className="panel">
+              Standings will appear when the tournament starts.
+            </p>
+          ) : (
+            <div>{renderStandings()}</div>
+          ))}
         {tab === "stats" && t.statsEnabled && (
           <section className="panel team-stats-panel" aria-label="Team stats">
             {statsQuery.isPending ? (
@@ -934,9 +668,14 @@ export function TournamentPage({
         {tab === "fixtures" && (
           <section className="fixtures-section">
             <div className="list-toolbar">
-              <div className="eyebrow">
-                {matchList.length} MATCHUPS · PLAY AT YOUR PACE
-              </div>
+              <p className="fixtures-progress">
+                {
+                  t.matches.filter(
+                    (fixture: Match): boolean => fixture.homeScore !== null,
+                  ).length
+                }
+                /{t.matches.length} matches played
+              </p>
               <div className="fixture-filters">
                 <select
                   aria-label="Filter by team"
@@ -982,11 +721,15 @@ export function TournamentPage({
               </div>
             </div>
             {matchList.length ? (
-              <div className="fixture-list">
-                {matchList
-                  .slice((fixturePage - 1) * 50, fixturePage * 50)
-                  .map(fixtureRow)}
-              </div>
+              <FixtureRounds
+                key={`${entrantFilter}:${statusFilter}:${stageFilter}`}
+                matches={matchList}
+                selectedRound={params.get("round") ?? "ALL"}
+                onRoundChange={(round: string): void =>
+                  setParam("round", round)
+                }
+                renderMatch={fixtureRow}
+              />
             ) : (
               <div className="empty">
                 <Swords size={32} />
@@ -1089,17 +832,6 @@ export function TournamentPage({
             )}
           </div>
         )}
-        {tab === "fixtures" && (
-          <Pagination
-            page={fixturePage}
-            limit={50}
-            total={matchList.length}
-            onPage={(next: number): void =>
-              setParam("fixturesPage", String(next))
-            }
-            label="Fixtures"
-          />
-        )}
         {tab === "history" && history.data && (
           <Pagination
             page={historyPage}
@@ -1113,13 +845,34 @@ export function TournamentPage({
           />
         )}
       </section>
+      {resultEntry && (
+        <Suspense fallback={<Spinner />}>
+          <ResultEntry
+            tournament={t}
+            onSaved={saved}
+            onClose={closeResultEntry}
+          />
+        </Suspense>
+      )}
       {selected && (
         <Suspense fallback={<Spinner />}>
           <MatchEditor
+            key={selected.id}
             t={t}
             match={selected}
             onClose={(): void => setSelected(null)}
             onSaved={saved}
+            onNext={
+              nextMatch
+                ? (result: Tournament): void => {
+                    const next = entryMatches(result).find(
+                      (entry: Match): boolean =>
+                        entry.id !== selected.id && entry.homeScore === null,
+                    );
+                    setSelected(next ?? null);
+                  }
+                : undefined
+            }
           />
         </Suspense>
       )}

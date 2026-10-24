@@ -82,7 +82,8 @@ test("reviews all extracted match stats on desktop and mobile", async ({
           }),
         ),
       };
-    else if (path.endsWith("/tournaments/tournament-id")) body = tournament;
+    else if (path.endsWith("/tournaments/tournament-id"))
+      body = { ...tournament, statsEnabled: true };
     else throw new Error(`Unexpected API request: ${path}`);
     await route.fulfill({ json: body });
   });
@@ -96,14 +97,25 @@ test("reviews all extracted match stats on desktop and mobile", async ({
   await page
     .getByRole("button", { name: "Read scorecard", exact: true })
     .click();
-  const table = page.getByRole("table", { name: "Extracted match stats" });
-  await expect(table.getByRole("row")).toHaveCount(14);
+  await expect(page.getByText(/Suggested scores filled/)).toHaveCount(0);
   await expect(
-    table.getByRole("row", { name: "Possession 55% 45%" }),
-  ).toBeVisible();
-  await expect(
-    table.getByRole("row", { name: "Saves 4 2", exact: true }),
-  ).toBeVisible();
+    page.getByRole("table", { name: "Extracted match stats" }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/Stats are shown for review only/)).toHaveCount(
+    0,
+  );
+  for (const [index, label] of labels.entries()) {
+    await expect(
+      page.getByRole("spinbutton", {
+        name: new RegExp(`^Alpha ${label}$`, "i"),
+      }),
+    ).toHaveValue(String(home[index]));
+    await expect(
+      page.getByRole("spinbutton", {
+        name: new RegExp(`^Beta ${label}$`, "i"),
+      }),
+    ).toHaveValue(String(away[index]));
+  }
   const swap = page.getByRole("button", { name: "Swap results", exact: true });
   await swap.focus();
   await page.keyboard.press("Enter");
@@ -114,18 +126,19 @@ test("reviews all extracted match stats on desktop and mobile", async ({
     page.getByRole("spinbutton", { name: "Beta score" }),
   ).toHaveValue("1");
   await expect(
-    table.getByRole("columnheader", { name: "Home · Alpha" }),
-  ).toBeVisible();
+    page.getByRole("spinbutton", { name: "Alpha Possession" }),
+  ).toHaveValue("45");
   await expect(
-    table.getByRole("row", { name: "Possession 45% 55%" }),
-  ).toBeVisible();
-  await expect(page.getByText(/Screenshot sides reversed/)).toBeVisible();
+    page.getByRole("spinbutton", { name: "Beta Possession" }),
+  ).toHaveValue("55");
   await expect(swap).toBeFocused();
   await swap.scrollIntoViewIfNeeded();
   await page.screenshot({
     path: `/tmp/tournament-swap/${info.project.name}-controls.png`,
   });
-  await table.scrollIntoViewIfNeeded();
+  await page
+    .getByRole("spinbutton", { name: "Alpha Possession" })
+    .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: `/tmp/tournament-swap/${info.project.name}-stats.png`,
   });
@@ -138,14 +151,13 @@ test("reviews all extracted match stats on desktop and mobile", async ({
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();
   expect(results.violations).toEqual([]);
-  await page.getByRole("region", { name: "Match stats review" }).focus();
-  await expect(
-    page.getByRole("region", { name: "Match stats review" }),
-  ).toBeFocused();
   await swap.click();
   await expect(
-    table.getByRole("row", { name: "Possession 55% 45%" }),
-  ).toBeVisible();
+    page.getByRole("spinbutton", { name: "Alpha Possession" }),
+  ).toHaveValue("55");
+  await expect(
+    page.getByRole("spinbutton", { name: "Beta Possession" }),
+  ).toHaveValue("45");
   await expect(
     page.getByRole("spinbutton", { name: "Alpha score" }),
   ).toHaveValue("1");

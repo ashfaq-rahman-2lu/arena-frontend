@@ -221,6 +221,7 @@ export function ModalCancel({ disabled }: ModalCancelProps): ReactElement {
   );
 }
 export interface ModalProps {
+  className?: string;
   title: string;
   children: ReactNode;
   onClose: () => void;
@@ -233,6 +234,7 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  className = "",
   dirty = false,
   pending = false,
 }: ModalProps): ReactElement {
@@ -269,7 +271,7 @@ export function Modal({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className={`modal ${wide ? "wide" : ""}`}
+      className={`modal ${wide ? "wide" : ""} ${className}`}
       onCancel={(event: React.SyntheticEvent<HTMLDialogElement>): void => {
         event.preventDefault();
         dismiss();
