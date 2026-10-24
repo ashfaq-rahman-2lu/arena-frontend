@@ -463,7 +463,7 @@ export interface paths {
         put?: never;
         /**
          * Extract scores and match stats for an eFootball tournament
-         * @description Only available when the match belongs to an EFOOTBALL tournament. Other games return 400 RULE_VIOLATION; manual result entry remains available.
+         * @description Only available for EFOOTBALL; other games return 400 RULE_VIOLATION. The backend automatically recognizes two score cells when tournament stat recording is disabled, or scores and all thirteen stat rows when enabled. Clients upload only the image. Suggestions never save results or stats.
          */
         post: operations["MatchesController_extract"];
         delete?: never;
@@ -957,7 +957,7 @@ export interface components {
             awayScore: number | null;
             homeTiebreak: number | null;
             awayTiebreak: number | null;
-            /** @description All thirteen match stat rows; unreadable cells are null. Suggestions only. */
+            /** @description All thirteen match stat rows when tournament stat recording is enabled; empty array when disabled. Unreadable cells are null. Suggestions only. */
             stats?: components["schemas"]["ExtractedMatchStat"][];
             warnings: string[];
         };
