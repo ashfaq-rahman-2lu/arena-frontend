@@ -948,9 +948,15 @@ test("saves optional manually entered stats with the match result", async (): Pr
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Add match statistics (optional)" }),
+  );
   await userEvent.type(
     screen.getByRole("spinbutton", { name: "Alpha Shots" }),
     "7",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Add match statistics (optional)" }),
   );
   await userEvent.click(screen.getByRole("button", { name: "Save result" }));
   await waitFor((): void => expect(save).toHaveBeenCalled());
@@ -1016,15 +1022,46 @@ test("scorecard buttons directly choose an image and retain its preview", async 
   ).toBeVisible();
   cache.clear();
 });
-test("enabled match stats are immediately editable without an expander", async (): Promise<void> => {
+test("optional stats start collapsed, expand on demand, and retain edits when collapsed", async (): Promise<void> => {
   const cache = showSwapEditor(match, { ...tournament, statsEnabled: true });
-  expect(screen.getByRole("spinbutton", { name: "Alpha Shots" })).toBeVisible();
-  expect(screen.getByRole("spinbutton", { name: "Beta Shots" })).toBeVisible();
   expect(
-    screen.getByRole("heading", { name: "Match stats (optional)" }),
-  ).toBeVisible();
-  expect(screen.getByRole("spinbutton", { name: "Alpha score" })).toHaveValue(
-    2,
+    screen.queryByRole("spinbutton", { name: "Alpha Shots" }),
+  ).not.toBeInTheDocument();
+  const toggle = screen.getByRole("button", {
+    name: "Add match statistics (optional)",
+  });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await userEvent.click(toggle);
+  await userEvent.type(
+    screen.getByRole("spinbutton", { name: "Alpha Shots" }),
+    "0",
+  );
+  await userEvent.click(toggle);
+  expect(
+    screen.queryByRole("spinbutton", { name: "Alpha Shots" }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(toggle);
+  expect(screen.getByRole("spinbutton", { name: "Alpha Shots" })).toHaveValue(
+    0,
+  );
+  cache.clear();
+});
+
+test("stored stats including zero expand automatically for review", (): void => {
+  const cache = showSwapEditor(
+    {
+      ...match,
+      stats: [
+        { key: "shots", label: "Shots", unit: "count", home: 0, away: null },
+      ],
+    },
+    { ...tournament, statsEnabled: true },
+  );
+  expect(
+    screen.getByRole("button", { name: "Add match statistics (optional)" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("spinbutton", { name: "Alpha Shots" })).toHaveValue(
+    0,
   );
   cache.clear();
 });

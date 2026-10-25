@@ -134,6 +134,9 @@ test("score saving stays visible while optional fields scroll", async ({
       return rect.top >= 0 && rect.bottom <= window.innerHeight;
     });
   expect(await fits()).toBe(true);
+  await page
+    .getByRole("button", { name: "Add match statistics (optional)" })
+    .click();
   await page.getByLabel("Alpha Possession").fill("55");
   expect(await fits()).toBe(true);
   const chooser = page.waitForEvent("filechooser");
@@ -163,9 +166,7 @@ test("compact heading and keyboard round navigation work without page overflow",
   await loadOrganizer(page, { longNames: true });
   const round = page.getByRole("combobox", { name: "Filter by round" });
   await expect(round).toBeVisible();
-  await expect(
-    page.getByText("0/2 matches played", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText(/Tournament:.*matches played/)).toHaveCount(0);
   await page.getByRole("button", { name: "Expand all", exact: true }).click();
   await expect(page.getByRole("button", { name: /Add result:/ })).toHaveCount(
     2,
@@ -421,6 +422,9 @@ test("mirrored score inputs, swap and stat rows align with unequal team names", 
   if (!importBox || !readBox)
     throw new Error("Import buttons must be measurable");
   expect(importBox.y).toBe(readBox.y);
+  await page
+    .getByRole("button", { name: "Add match statistics (optional)" })
+    .click();
   const homeStat = page.getByRole("spinbutton", {
     name: "Alpha International Championship Players Association Shots",
     exact: true,

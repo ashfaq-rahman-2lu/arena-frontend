@@ -480,9 +480,28 @@ h3 {
 }
 .lookup {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
   width: 445px;
+  max-width: 100%;
   flex-shrink: 0;
+}
+.lookup-field {
+  flex: 1;
+  min-width: 0;
+}
+.lookup-field .inline-error {
+  margin: 8px 0 0;
+}
+.lookup-recovery {
+  margin: 0 auto 40px;
+  max-width: 560px;
+}
+.lookup-recovery h2 {
+  font-size: 1.125rem;
+}
+.lookup-recovery .lookup {
+  width: 100%;
 }
 .lookup input {
   font-family: monospace;
@@ -1367,9 +1386,10 @@ h3 {
   margin-top: 4px;
 }
 .compact-tournament-progress > p {
-  margin: 8px 0;
+  margin: 0;
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
 }
 .competition-progress-actions {
@@ -1527,6 +1547,9 @@ h3 {
   }
 }
 /* Tournament navigation remains in reach as fixture lists scroll. */
+.tournament-page [role="tabpanel"] {
+  scroll-margin-top: 4rem;
+}
 .tournament-navigation {
   position: sticky;
   top: 0;
@@ -2003,6 +2026,59 @@ td:nth-child(2) {
   margin: 0;
   font-size: 0.875rem;
   color: var(--text-secondary);
+}
+.fixtures-progress p {
+  margin: 0;
+}
+.public-refresh {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 4px;
+  margin-block: 0 4px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+.public-refresh p {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.2;
+}
+.public-refresh button {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px;
+}
+.qualification-progress h2 {
+  font-size: 1.25rem;
+}
+.qualification-progress ul {
+  padding-inline-start: 20px;
+  margin-block: 20px;
+}
+.qualification-progress li {
+  margin-block: 8px;
+  overflow-wrap: anywhere;
+}
+.qualification-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.team-fixtures-link {
+  text-decoration: underline;
+  text-decoration-color: var(--muted);
+  text-underline-offset: 4px;
+}
+.team-fixtures-link:hover {
+  color: var(--lime);
+}
+.standings-scroll .team-fixtures-link {
+  text-decoration: none;
 }
 .fixture-round {
   border: 1px solid var(--line);
@@ -3498,9 +3574,27 @@ h3 {
 .match-stats-editor {
   margin: 12px 0;
 }
-.match-stats-editor h3 {
+.match-stats-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--panel-light);
   font-size: 0.875rem;
-  margin: 0 0 8px;
+  text-align: left;
+}
+.match-stats-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.match-stats-editor > p {
+  margin: 8px 0 12px;
+  font-size: var(--text-label);
 }
 .match-stat-fields {
   display: grid;

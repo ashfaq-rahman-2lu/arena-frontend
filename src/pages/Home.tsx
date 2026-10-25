@@ -9,14 +9,12 @@ import {
   Swords,
   Users,
 } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { TournamentLookup } from "../features/public-viewing/tournament-lookup";
 import type { Entrant, Tournament } from "../shared/api/arena-api";
 import { api } from "../shared/api/arena-api";
 import { Badge, StatusBadge, TeamMark } from "../shared/ui/primitives";
 export function Home(): React.JSX.Element {
-  const [code, setCode] = useState("");
-  const navigate = useNavigate();
   const { data: demo } = useQuery({
     queryKey: ["featured"],
     queryFn: (): Promise<Tournament> => api.public("ARENA2026"),
@@ -135,31 +133,7 @@ export function Home(): React.JSX.Element {
           <h2>Got a tournament ID?</h2>
           <p>No sign-up needed. Your arena is one code away.</p>
         </div>
-        <form
-          className="lookup"
-          onSubmit={(e: React.SubmitEvent<HTMLFormElement>): void => {
-            e.preventDefault();
-            if (code.trim())
-              navigate(`/t/${encodeURIComponent(code.trim().toUpperCase())}`);
-          }}
-        >
-          <label className="sr-only" htmlFor="tournament-code">
-            Tournament ID
-          </label>
-          <input
-            id="tournament-code"
-            placeholder="ENTER TOURNAMENT ID"
-            value={code}
-            onChange={(
-              e: React.ChangeEvent<HTMLInputElement, HTMLInputElement>,
-            ): void => setCode(e.target.value)}
-            required
-            maxLength={30}
-          />
-          <button className="button" type="submit">
-            Find tournament <ArrowRight size={17} />
-          </button>
-        </form>
+        <TournamentLookup />
       </section>
       <section className="container features-section">
         <div className="section-heading">

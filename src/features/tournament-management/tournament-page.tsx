@@ -1,3 +1,8 @@
+import { TournamentLookup } from "../public-viewing/tournament-lookup";
+import { RefreshStatus } from "../public-viewing/refresh-status";
+import { FixtureProgress } from "./fixture-progress";
+import { QualificationProgress } from "./qualification-progress";
+import { teamFixturesSearch } from "./fixture-navigation";
 import { TeamStatsPanel } from "./team-stats-panel";
 import { TournamentHeader } from "./tournament-header";
 import { TournamentNavigation } from "./tournament-navigation";
@@ -29,7 +34,13 @@ import {
   Swords,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import type { components } from "../../generated/api";
 import type { Entrant } from "../../shared/api/arena-api";
 import {
@@ -87,6 +98,9 @@ export function TournamentPage({
     ? queryKeys.detail(ownerId, id ?? "")
     : queryKeys.public(publicId ?? "");
   const query = useCompetition(admin, ownerId, id ?? "", publicId ?? "");
+  const location = useLocation();
+  const panelRef = useRef<HTMLElement>(null);
+  const ready = Boolean(query.data);
   const mutation = useTournamentMutation(ownerId);
   const [params, setParams] = useSearchParams();
   const defaultTab =
@@ -94,6 +108,20 @@ export function TournamentPage({
   const requestedTab = params.get("tab");
   const tab =
     !requestedTab || requestedTab === "overview" ? defaultTab : requestedTab;
+  useEffect((): void => {
+    const state: unknown = location.state;
+    if (
+      ready &&
+      tab === "fixtures" &&
+      state &&
+      typeof state === "object" &&
+      "focusFixtures" in state &&
+      state.focusFixtures === true
+    ) {
+      panelRef.current?.focus();
+      panelRef.current?.scrollIntoView?.({ block: "start" });
+    }
+  }, [ready, tab, location.key, location.state]);
   useEffect((): void => {
     if (!query.data || params.get("tab") !== "overview") return;
     const next = new URLSearchParams(params);
@@ -240,13 +268,25 @@ export function TournamentPage({
   if (query.isPending) return <Spinner />;
   if (query.error && !query.data)
     return (
-      <main className="container">
+      <main id="main-content" className="container">
         <ErrorState
           error={query.error}
-          retry={(): Promise<QueryObserverResult<Tournament, ApiError>> =>
-            query.refetch()
+          retry={
+            !admin && [400, 404].includes(query.error.status)
+              ? undefined
+              : (): Promise<QueryObserverResult<Tournament, ApiError>> =>
+                  query.refetch()
           }
         />
+        {!admin && (
+          <section
+            className="lookup-recovery"
+            aria-label="Find another tournament"
+          >
+            <h2>Check the ID or try another tournament</h2>
+            <TournamentLookup key={publicId} initialValue={publicId ?? ""} />
+          </section>
+        )}
       </main>
     );
   const t = query.data;
@@ -593,6 +633,16 @@ export function TournamentPage({
           </div>
         )}
       </TournamentHeader>
+      {!admin && (
+        <RefreshStatus
+          updatedAt={query.dataUpdatedAt}
+          fetching={query.isFetching}
+          failed={query.isError}
+          onRefresh={(): void => {
+            void query.refetch();
+          }}
+        />
+      )}
       <TournamentNavigation
         tournament={t}
         admin={admin}
@@ -600,6 +650,7 @@ export function TournamentPage({
         onChange={setTab}
       />
       <section
+        ref={panelRef}
         role="tabpanel"
         id={`panel-${tab}`}
         aria-labelledby={`tab-${tab}`}
@@ -627,14 +678,7 @@ export function TournamentPage({
         {tab === "fixtures" && (
           <section className="fixtures-section">
             <div className="list-toolbar">
-              <p className="fixtures-progress">
-                {
-                  t.matches.filter(
-                    (fixture: Match): boolean => fixture.homeScore !== null,
-                  ).length
-                }
-                /{t.matches.length} matches played
-              </p>
+              <FixtureProgress tournament={t} teamId={entrantFilter} />
               <div className="fixture-filters">
                 <select
                   aria-label="Filter by team"
@@ -706,21 +750,48 @@ export function TournamentPage({
             )}
           </section>
         )}
-        {tab === "knockout" && (
-          <KnockoutBoard
-            t={t}
-            admin={admin}
-            onSelect={setSelected}
-            onViewStats={setPublicStatsMatch}
-          />
-        )}
+        {tab === "knockout" &&
+          (admin &&
+          t.format === "WORLD_CUP" &&
+          !t.qualification &&
+          !t.rounds.length ? (
+            <QualificationProgress
+              tournament={t}
+              onFixtures={(): void =>
+                setParams({
+                  tab: "fixtures",
+                  stage: "GROUP",
+                  status: "PENDING",
+                })
+              }
+              onStandings={(): void => setParams({ tab: "standings" })}
+              onReview={(): void => openProgression("qualification")}
+              onStart={(): void => openProgression("preview")}
+            />
+          ) : (
+            <KnockoutBoard
+              t={t}
+              admin={admin}
+              onSelect={setSelected}
+              onViewStats={setPublicStatsMatch}
+            />
+          ))}
         {tab === "teams" && (
           <div className="team-grid">
             {t.entrants.map((e: Entrant, i: number): React.JSX.Element => (
               <div className="team-card" key={e.id}>
                 <TeamMark name={e.name} index={i} />
                 <div>
-                  <h3>{e.name}</h3>
+                  <h3>
+                    <Link
+                      className="team-fixtures-link"
+                      to={teamFixturesSearch(e.id)}
+                      state={{ focusFixtures: true }}
+                      aria-label={`View fixtures for ${e.name}`}
+                    >
+                      {e.name}
+                    </Link>
+                  </h3>
                   <p>
                     {t.groups.find(
                       (g: components["schemas"]["Group"]): boolean =>

@@ -44,7 +44,7 @@ export function useCompetition(
     queryFn: ({ signal }: QueryFunctionContext): Promise<Tournament> =>
       admin ? api.get(id, signal) : api.public(publicId, signal),
     enabled: admin ? Boolean(ownerId && id) : Boolean(publicId),
-    refetchInterval: admin ? false : 15000,
+    refetchInterval: admin ? false : 60_000,
     refetchIntervalInBackground: false,
     retry: false,
   });

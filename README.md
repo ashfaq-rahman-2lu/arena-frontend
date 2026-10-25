@@ -41,9 +41,21 @@ Cookie sessions work with sibling HTTPS subdomains, e.g. `app.example.com` and `
 
 ## Reviewing match results
 
+Optional match statistics start collapsed so organizers can enter scores quickly. Select **Add match statistics (optional)** to edit them. Existing recorded statistics (including zero values) and statistics applied from a scorecard open the section for review. Collapsing it preserves the draft and does not exclude those statistics from saving.
+
 Every game's result editor includes **Swap results** beneath the score fields. It reverses the draft scores and any displayed OCR stat columns while keeping team identities and fixture order fixed. Swapping never saves automatically; review the result and select **Save result**. Single-match knockout tiebreaks and the selected winner move with the result. Swapping a leg of a two-leg tie clears the aggregate decision so it can be reviewed again.
 
 Screenshot upload remains available only for eFootball tournaments. Stats are labeled with the tournament's home/away team names, and reversed screenshot sides are identified. Reading a new upload resets the displayed screenshot orientation, while manually edited or swapped scores remain protected from OCR overwrites.
+
+## Finding and following tournaments
+
+Tournament lookup accepts an 8–10 character alphanumeric ID or an HTTP(S) tournament link ending in `/t/ID`, including links with query parameters or a trailing slash. It extracts the ID and opens the local public page; it never follows the pasted link's origin. Invalid input stays in the form with an explanation. Failed public lookups include an editable ID/link field so spectators can correct the code in place.
+
+Team names in standings and team cards link to that team's complete fixture list, clearing unrelated status, stage, and round filters. Fixture progress shows the selected team's played/total count; the overall count appears only in the tournament header. Team totals remain independent of fixture status and round filters.
+
+Public tournament pages show the last successful refresh time in the viewer's local time zone and the one-minute refresh interval. During a failed background refresh, the last tournament view stays visible with a warning and **Refresh now** recovery action.
+
+For group tournaments, the admin Knockout section lists remaining matches per group and completed groups with unresolved ties across the qualification cutoff. Its actions open unfinished group fixtures, standings for tie resolution, or the existing qualifier review dialog. Advancement still requires explicit confirmation; the API remains authoritative about qualification readiness.
 
 ## API schema updates
 

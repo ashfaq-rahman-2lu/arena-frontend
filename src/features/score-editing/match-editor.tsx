@@ -2,6 +2,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeftRight,
+  ChevronDown,
   LoaderCircle,
   RotateCcw,
   ScanLine,
@@ -12,6 +13,7 @@ import {
   FormEvent,
   ReactElement,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -110,6 +112,12 @@ export function MatchEditor({
   );
   const [statsDraft, setStatsDraft] = useState<MatchStatDraft[]>(
     (): MatchStatDraft[] => statsFromMatch(match.stats ?? null),
+  );
+  const statsId = useId();
+  const [statsOpen, setStatsOpen] = useState<boolean>((): boolean =>
+    statsDraft.some(
+      (stat: MatchStatDraft): boolean => stat.home !== "" || stat.away !== "",
+    ),
   );
   const [initial, setInitial] = useState(
     JSON.stringify({ scores, statsDraft }),
@@ -269,6 +277,13 @@ export function MatchEditor({
     setScores((old: DraftScores): DraftScores =>
       mergeSuggestedScores(old, values, touched.current),
     );
+    if (
+      suggestion.stats?.some(
+        (stat: NonNullable<Suggestion["stats"]>[number]): boolean =>
+          stat.home !== null || stat.away !== null,
+      )
+    )
+      setStatsOpen(true);
     const reverseStats =
       reversed ?? (extraction.status === "suggested" && extraction.reversed);
     setStatsDraft((old: MatchStatDraft[]): MatchStatDraft[] =>
@@ -797,79 +812,91 @@ export function MatchEditor({
           )}
           {base.t.statsEnabled && (
             <section className="match-stats-editor" aria-label="Match stats">
-              <h3>Match stats (optional)</h3>
-              <div className="match-stat-fields">
-                {statsDraft.map((stat: MatchStatDraft): ReactElement => (
-                  <div
-                    className="match-stat-row"
-                    role="group"
-                    aria-label={stat.label}
-                    key={stat.key}
-                  >
-                    <Field label={home.name}>
-                      <input
-                        aria-label={`${home.name} ${stat.label}`}
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        max={stat.unit === "percent" ? 100 : 9999}
-                        step={1}
-                        value={stat.home}
-                        onChange={(
-                          event: ChangeEvent<HTMLInputElement>,
-                        ): void => {
-                          const value = event.currentTarget.value;
-                          touchedStats.current.add(`${stat.key}.home`);
-                          setStatsDraft(
-                            (old: MatchStatDraft[]): MatchStatDraft[] =>
-                              old.map(
-                                (entry: MatchStatDraft): MatchStatDraft =>
-                                  entry.key === stat.key
-                                    ? {
-                                        ...entry,
-                                        home: value,
-                                      }
-                                    : entry,
-                              ),
-                          );
-                        }}
-                      />
-                    </Field>
-                    <span className="match-stat-name">
-                      {stat.label}
-                      {stat.unit === "percent" ? " (%)" : ""}
-                    </span>
-                    <Field label={away.name}>
-                      <input
-                        aria-label={`${away.name} ${stat.label}`}
-                        type="number"
-                        inputMode="numeric"
-                        min={0}
-                        max={stat.unit === "percent" ? 100 : 9999}
-                        step={1}
-                        value={stat.away}
-                        onChange={(
-                          event: ChangeEvent<HTMLInputElement>,
-                        ): void => {
-                          const value = event.currentTarget.value;
-                          touchedStats.current.add(`${stat.key}.away`);
-                          setStatsDraft(
-                            (old: MatchStatDraft[]): MatchStatDraft[] =>
-                              old.map(
-                                (entry: MatchStatDraft): MatchStatDraft =>
-                                  entry.key === stat.key
-                                    ? {
-                                        ...entry,
-                                        away: value,
-                                      }
-                                    : entry,
-                              ),
-                          );
-                        }}
-                      />
-                    </Field>
-                  </div>
-                ))}
+              <button
+                type="button"
+                className="match-stats-toggle"
+                aria-expanded={statsOpen}
+                aria-controls={statsId}
+                onClick={(): void => setStatsOpen(!statsOpen)}
+              >
+                <span>Add match statistics (optional)</span>
+                <ChevronDown size={18} aria-hidden="true" />
+              </button>
+              <p className="muted">Only scores are required.</p>
+              <div id={statsId} hidden={!statsOpen}>
+                <div className="match-stat-fields">
+                  {statsDraft.map((stat: MatchStatDraft): ReactElement => (
+                    <div
+                      className="match-stat-row"
+                      role="group"
+                      aria-label={stat.label}
+                      key={stat.key}
+                    >
+                      <Field label={home.name}>
+                        <input
+                          aria-label={`${home.name} ${stat.label}`}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={stat.unit === "percent" ? 100 : 9999}
+                          step={1}
+                          value={stat.home}
+                          onChange={(
+                            event: ChangeEvent<HTMLInputElement>,
+                          ): void => {
+                            const value = event.currentTarget.value;
+                            touchedStats.current.add(`${stat.key}.home`);
+                            setStatsDraft(
+                              (old: MatchStatDraft[]): MatchStatDraft[] =>
+                                old.map(
+                                  (entry: MatchStatDraft): MatchStatDraft =>
+                                    entry.key === stat.key
+                                      ? {
+                                          ...entry,
+                                          home: value,
+                                        }
+                                      : entry,
+                                ),
+                            );
+                          }}
+                        />
+                      </Field>
+                      <span className="match-stat-name">
+                        {stat.label}
+                        {stat.unit === "percent" ? " (%)" : ""}
+                      </span>
+                      <Field label={away.name}>
+                        <input
+                          aria-label={`${away.name} ${stat.label}`}
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={stat.unit === "percent" ? 100 : 9999}
+                          step={1}
+                          value={stat.away}
+                          onChange={(
+                            event: ChangeEvent<HTMLInputElement>,
+                          ): void => {
+                            const value = event.currentTarget.value;
+                            touchedStats.current.add(`${stat.key}.away`);
+                            setStatsDraft(
+                              (old: MatchStatDraft[]): MatchStatDraft[] =>
+                                old.map(
+                                  (entry: MatchStatDraft): MatchStatDraft =>
+                                    entry.key === stat.key
+                                      ? {
+                                          ...entry,
+                                          away: value,
+                                        }
+                                      : entry,
+                                ),
+                            );
+                          }}
+                        />
+                      </Field>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
           )}

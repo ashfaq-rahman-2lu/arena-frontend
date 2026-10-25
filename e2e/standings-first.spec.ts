@@ -386,7 +386,7 @@ test("public view opens standings without result-entry controls", async ({
   ).toHaveCount(0);
   await page.getByRole("button", { name: "Tournament information" }).click();
   await expect(
-    page.getByText("Public view · refreshes every 15s", { exact: true }),
+    page.getByText("Public view · refreshes every 1 min", { exact: true }),
   ).toBeVisible();
 });
 
