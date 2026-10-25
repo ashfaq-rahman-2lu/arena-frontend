@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, test, vi } from "vitest";
@@ -210,6 +210,72 @@ test("fixtures navigate complete rounds and keep group and knockout rounds disti
   expect(
     screen.getByRole("button", { name: /Groups · Round 1/ }),
   ).toBeVisible();
+  cache.clear();
+});
+
+test("public played fixtures offer a read-only match stats action", async (): Promise<void> => {
+  const cache = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const getPublic = vi.spyOn(api, "public").mockResolvedValue({
+    ...tournament,
+    statsEnabled: true,
+    matches: [match],
+  });
+  const getMatchStats = vi.spyOn(api, "publicMatchStats").mockResolvedValue({
+    stats: [
+      {
+        key: "possession",
+        label: "Possession",
+        unit: "percent",
+        home: 55,
+        away: 45,
+      },
+      {
+        key: "shots",
+        label: "Shots",
+        unit: "count",
+        home: 11,
+        away: 7,
+      },
+    ],
+  });
+  render(
+    <QueryClientProvider client={cache}>
+      <MemoryRouter initialEntries={["/t/ARENA2026?tab=fixtures"]}>
+        <Routes>
+          <Route path="/t/:publicId" element={<TournamentPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(
+    await screen.findByRole("button", { name: "View stats: Alpha vs Beta" }),
+  ).toBeVisible();
+  expect(screen.queryByText("Final")).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "View stats: Alpha vs Beta" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Match stats: Alpha vs Beta",
+  });
+  expect(within(dialog).getByText("Possession")).toBeVisible();
+  expect(within(dialog).getByText("55%")).toBeVisible();
+  expect(within(dialog).getByText("11")).toBeVisible();
+  expect(getMatchStats).toHaveBeenCalledWith(
+    "ARENA2026",
+    "match-id",
+    expect.any(AbortSignal),
+  );
+  expect(
+    screen.queryByRole("button", { name: /Edit result/ }),
+  ).not.toBeInTheDocument();
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: "Close dialog" }),
+  );
+  getPublic.mockRestore();
+  getMatchStats.mockRestore();
   cache.clear();
 });
 

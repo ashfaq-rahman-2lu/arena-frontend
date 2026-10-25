@@ -488,6 +488,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/tournaments/{publicId}/matches/{matchId}/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["PublicViewingController_matchStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/tournaments/{publicId}": {
         parameters: {
             query?: never;
@@ -978,6 +994,18 @@ export interface components {
         TeamStatsView: {
             enabled: boolean;
             teams: components["schemas"]["TeamStatsRow"][];
+        };
+        MatchStatView: {
+            /** @enum {string} */
+            key: "possession" | "shots" | "shotsOnTarget" | "fouls" | "offsides" | "cornerKicks" | "freeKicks" | "passes" | "successfulPasses" | "crosses" | "interceptions" | "tackles" | "saves";
+            label: string;
+            home: number | null;
+            away: number | null;
+            /** @enum {string} */
+            unit: "percent" | "count";
+        };
+        PublicMatchStatsView: {
+            stats: components["schemas"]["MatchStatView"][];
         };
         HealthView: {
             status: string;
@@ -4068,6 +4096,100 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamStatsView"];
+                };
+            };
+            /** @description Validation or competition rule failure */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Ownership or CSRF denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Resource not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Revision conflict or reset confirmation required */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Unexpected error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+            /** @description Integration unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    PublicViewingController_matchStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                publicId: string;
+                matchId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicMatchStatsView"];
                 };
             };
             /** @description Validation or competition rule failure */

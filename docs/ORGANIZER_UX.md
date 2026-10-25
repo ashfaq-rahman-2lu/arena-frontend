@@ -756,3 +756,37 @@ Generated artifacts updated during verification:
 - `/private/tmp/arena-public-team-stats-expanded.png` and `/private/tmp/arena-public-team-stats-full.png` — live public table screenshots after inspecting expansion and the compact default view.
 
 The tournament-navigation, menu, tooltip, and other earlier uncommitted work in this checkout predates this follow-up and was preserved. No backend/API contracts, dependencies, database records, or tournament data changed. The isolated browser preview server was stopped after the checks.
+
+## Public match stats
+
+Played fixtures and knockout matches in public tournaments with match stats enabled now show a **View stats** action in place of the Final status or disabled match card. Activating it fetches that match’s saved stats on demand and opens a read-only dialog with home/away values, loading feedback, an empty state, and retry on errors. The public match-stats endpoint only returns data for a completed match scoped to the supplied public tournament. No edit controls are available in the dialog.
+
+RED: the focused public fixture test failed because it could not find the View stats action; the knockout-board test also failed because its public match card was disabled. GREEN: both tests verify the public action, on-demand request, read-only dialog and displayed values. All 113 frontend tests pass; typecheck, lint, formatting and production build pass. The browser-specific integration suite was not run because it requires its dedicated browser test database.
+
+Files changed for this follow-up:
+
+- `src/features/tournament-management/public-match-stats-dialog.tsx` — on-demand read-only stats dialog with loading, error/retry and empty states.
+- `src/features/tournament-management/knockout-board.tsx` — made completed public knockout cards open match stats without enabling result editing.
+- `src/features/tournament-management/knockout-board.test.tsx` — covered the public knockout stats action and read-only behavior.
+- `src/features/tournament-management/tournament-page.tsx` — replaced Final with View stats for completed public fixtures when stats are enabled.
+- `src/features/tournament-management/tournament-page.test.tsx` — covered the public action, request, values and read-only presentation.
+- `src/shared/api/arena-api.ts` — added the typed public match-stats read.
+- `src/shared/api/query-keys.ts` — added a scoped public match-stats cache key.
+- `src/styles.css` — added compact, scroll-contained match-stats table styling.
+- `contracts/openapi.json` and `src/generated/api.ts` — synchronized and regenerated from the backend OpenAPI schema.
+- `docs/ORGANIZER_UX.md` — documented this behavior and verification.
+
+Backend files changed for the same feature:
+
+- `src/public-viewing/public-viewing.controller.ts` and `src/public-viewing/public-viewing.service.ts` — added the public read-only route and delegation.
+- `src/stats/team-stats.dto.ts` — declared the response DTO.
+- `src/tournaments/tournaments.repository.ts` and `src/tournaments/tournaments.service.ts` — fetch and scope completed-match stats.
+- `test/api/api.test.ts` — added public endpoint coverage for saved stats and tournament scoping.
+- `openapi.json` — regenerated the backend API contract.
+- `README.md` — documented endpoint access rules.
+
+The backend unit suite, typecheck, lint, formatting and build pass. The API integration test was not run because `TEST_DATABASE_URL` is unset; the integration suite requires a dedicated PostgreSQL database whose name ends in `_test`. No schema migration or application-data changes were made. Build output in the ignored frontend `dist/` directory was regenerated during validation.
+
+## Public match stats density refinement
+
+Reduced the View stats control’s width, padding and label size, with a 40px mobile hit area. Tightened stat table typography, line height and cell padding, strengthened the row dividers, and reduced the dialog’s content/header spacing. The two focused public match-view tests pass, along with frontend typecheck, lint, formatting and production build.
