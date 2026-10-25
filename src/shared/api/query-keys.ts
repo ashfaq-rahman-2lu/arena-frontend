@@ -51,4 +51,16 @@ export const queryKeys = {
     publicId,
     matchId,
   ],
+  following: (userId: string, page: number): readonly unknown[] => [
+    "private",
+    userId,
+    "following",
+    page,
+  ],
+  followingStatus: (userId: string, publicId: string): readonly unknown[] => [
+    "private",
+    userId,
+    "following-status",
+    publicId,
+  ],
 };

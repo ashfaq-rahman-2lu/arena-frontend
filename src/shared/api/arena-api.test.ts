@@ -213,3 +213,28 @@ for (const stats of [
     ).rejects.toThrow();
   });
 }
+test("follow and unfollow accept documented empty 204 responses", async (): Promise<void> => {
+  const instance = createArenaApi(
+    async (input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+      (input instanceof Request ? input.url : String(input)).includes(
+        "/auth/session",
+      )
+        ? new Response(
+            JSON.stringify({ csrf: "csrf", user: null, googleEnabled: false }),
+            { headers: { "Content-Type": "application/json" } },
+          )
+        : new Response(null, { status: 204 }),
+  );
+  await expect(instance.follow("ABCD1234")).resolves.toBeUndefined();
+  await expect(instance.unfollow("ABCD1234")).resolves.toBeUndefined();
+});
+test("JSON endpoints continue rejecting unexpected empty responses", async (): Promise<void> => {
+  const instance = createArenaApi(
+    async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> =>
+      new Response(null, { status: 204 }),
+  );
+  await expect(instance.session()).rejects.toMatchObject({
+    status: 502,
+    code: "INVALID_RESPONSE",
+  });
+});

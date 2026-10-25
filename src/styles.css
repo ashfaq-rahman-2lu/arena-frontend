@@ -903,24 +903,40 @@ h3 {
 .tournament-card > .progress {
   margin-top: 16px;
 }
-.account-strip {
-  border-top: 1px solid var(--line);
-  margin-top: 45px;
-  padding-top: 22px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 15px;
-  font-size: 0.75rem;
-  color: #7e8a70;
+.following-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.12));
 }
-.account-strip strong {
-  font-weight: 500;
-  color: #a6b198;
-}
-.account-strip > div {
+.following-card {
   display: flex;
-  gap: 20px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.following-card-link {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.following-card h3 {
+  margin: 0.7rem 0 0.35rem;
+}
+.following-card .text-button {
+  margin-top: auto;
+}
+
+.profile-settings {
+  display: grid;
+  gap: 1rem;
+}
+.profile-settings h3 {
+  margin: 0.75rem 0 0;
+}
+.profile-settings form {
+  display: grid;
+  gap: 0.8rem;
 }
 .empty {
   padding: 60px 20px;
@@ -1965,9 +1981,14 @@ td:nth-child(2) {
   font-size: 0.75rem;
   font-weight: 500;
 }
+.fixtures-section > .list-toolbar {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
 .fixture-filters {
   display: flex;
   gap: 8px;
+  max-width: 100%;
 }
 .fixtures-section .fixture-filters select {
   min-height: 44px;
@@ -2023,6 +2044,7 @@ td:nth-child(2) {
   margin-bottom: 0;
 }
 .fixtures-progress {
+  align-self: center;
   margin: 0;
   font-size: 0.875rem;
   color: var(--text-secondary);
@@ -3098,14 +3120,6 @@ td:nth-child(2) {
   .card-top {
     margin-bottom: 20px;
   }
-  .account-strip {
-    flex-direction: column;
-    align-items: flex-start;
-    font-size: 0.75rem;
-  }
-  .account-strip > .text-button {
-    font-size: 0.75rem;
-  }
   .auth-layout {
     grid-template-columns: 1fr;
     padding-top: 40px;
@@ -3884,5 +3898,110 @@ h3 {
   }
   .bracket-slot > span {
     flex-basis: 100%;
+  }
+}
+
+/* Account navigation */
+.account-menu {
+  position: relative;
+}
+.account-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  padding: 0.3rem 0.65rem 0.3rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-light);
+  color: var(--text);
+}
+.account-menu-trigger:hover,
+.account-menu-trigger[aria-expanded="true"] {
+  border-color: var(--lime);
+}
+.account-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--lime);
+  color: var(--background);
+  font-weight: 800;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+.account-name {
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+  width: max-content;
+  max-width: min(224px, calc(100vw - 42px));
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-light);
+  box-shadow: 0 12px 28px #0005;
+}
+.account-menu-panel[hidden] {
+  display: none;
+}
+.account-menu-identity {
+  max-width: 200px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 8px 10px;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.account-menu-identity strong {
+  font-size: 0.875rem;
+}
+.account-menu-identity span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.account-menu-panel > button,
+.account-menu-panel > a {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+}
+.account-menu-panel > button:hover,
+.account-menu-panel > a:hover {
+  background: var(--panel);
+  color: var(--lime);
+}
+.account-menu-panel > p {
+  padding: 0.6rem;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .account-name {
+    max-width: 5rem;
   }
 }

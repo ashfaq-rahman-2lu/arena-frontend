@@ -15,6 +15,7 @@ import { PublicMatchStatsDialog } from "./public-match-stats-dialog";
 import type { PairingOptions } from "../../shared/api/arena-api";
 interface TournamentPageProps {
   admin?: boolean;
+  publicActions?: React.ReactNode;
 }
 import type {
   QueryFunctionContext,
@@ -88,6 +89,7 @@ const MatchEditor = lazy(
 );
 export function TournamentPage({
   admin = false,
+  publicActions,
 }: TournamentPageProps): React.JSX.Element {
   const { id, publicId } = useParams();
   const toast = useToast(),
@@ -578,6 +580,7 @@ export function TournamentPage({
                 )}
               </>
             )}
+            {!admin && publicActions}
             <ShareButton code={t.publicId} />
             {admin && (
               <Link
@@ -678,7 +681,6 @@ export function TournamentPage({
         {tab === "fixtures" && (
           <section className="fixtures-section">
             <div className="list-toolbar">
-              <FixtureProgress tournament={t} teamId={entrantFilter} />
               <div className="fixture-filters">
                 <select
                   aria-label="Filter by team"
@@ -722,6 +724,7 @@ export function TournamentPage({
                   </select>
                 )}
               </div>
+              <FixtureProgress tournament={t} teamId={entrantFilter} />
             </div>
             {matchList.length ? (
               <FixtureRounds

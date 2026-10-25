@@ -36,6 +36,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../../features/authentication/use-session";
+import { AccountMenu } from "../../features/authentication/account-menu";
 export { useSession };
 const ToastContext = createContext<(message: string, error?: boolean) => void>(
   (): void => {},
@@ -104,9 +105,7 @@ export function Nav(): React.JSX.Element {
           {isPending ? (
             <span role="status">Checking session…</span>
           ) : data?.user ? (
-            <Link to="/dashboard" className="button small">
-              My arena <ArrowRight size={16} />
-            </Link>
+            <AccountMenu key={data.user.id} session={data} />
           ) : (
             <>
               <Link to="/auth/login" className="quiet-link">

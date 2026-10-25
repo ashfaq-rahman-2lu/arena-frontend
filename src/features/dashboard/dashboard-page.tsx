@@ -1,10 +1,6 @@
-import { apiUrl } from "../../shared/api/api-origin";
 import type { QueryObserverResult } from "@tanstack/react-query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpRight,
-  Link2,
-  LogOut,
   Plus,
   Search,
   Swords,
@@ -14,16 +10,10 @@ import {
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import type { components } from "../../generated/api";
 import type { Entrant } from "../../shared/api/arena-api";
-import {
-  api,
-  ApiError,
-  errorMessage,
-  Session,
-  TournamentFilters,
-} from "../../shared/api/arena-api";
+import { ApiError, TournamentFilters } from "../../shared/api/arena-api";
 import { useDashboard } from "../../shared/api/query-hooks";
-import { queryKeys } from "../../shared/api/query-keys";
 import { Pagination } from "../../shared/ui/pagination";
+import { FollowingSection } from "./following-section";
 import {
   ErrorState,
   Spinner,
@@ -34,8 +24,7 @@ import {
 } from "../../shared/ui/primitives";
 export function Dashboard(): React.JSX.Element {
   const { data: session, isPending: sessionPending } = useSession();
-  const toast = useToast(),
-    cache = useQueryClient();
+  const toast = useToast();
   const [params, setParams] = useSearchParams();
   const filter = params.get("status") ?? "ALL",
     search = params.get("search") ?? "";
@@ -64,15 +53,6 @@ export function Dashboard(): React.JSX.Element {
       return next;
     });
   };
-  const logout = useMutation({
-    mutationFn: api.logout,
-    retry: false,
-    onSuccess: async (data: Session): Promise<void> => {
-      await cache.cancelQueries({ queryKey: ["private"] });
-      cache.removeQueries({ queryKey: ["private"] });
-      cache.setQueryData(queryKeys.session(), data);
-    },
-  });
   if (sessionPending) return <Spinner />;
   if (!session?.user) return <Navigate to="/auth/login" replace />;
   const shown = tournaments?.items ?? [],
@@ -257,35 +237,7 @@ export function Dashboard(): React.JSX.Element {
           label="Tournaments"
         />
       )}
-      {logout.error && (
-        <div role="alert" className="inline-error">
-          {errorMessage(logout.error)}
-        </div>
-      )}
-      <div className="account-strip">
-        <span>
-          Signed in as <strong>{session.user.email}</strong>
-        </span>
-        <div>
-          {session.googleEnabled && !session.user.googleLinked && (
-            <a
-              href={apiUrl("/api/v1/auth/google?link=1")}
-              className="text-button"
-            >
-              <Link2 size={15} /> Link Google account
-            </a>
-          )}
-          <button
-            className="text-button muted"
-            disabled={logout.isPending}
-            onClick={(): void => {
-              logout.mutate();
-            }}
-          >
-            <LogOut size={15} /> Sign out
-          </button>
-        </div>
-      </div>
+      <FollowingSection userId={session.user.id} />
     </main>
   );
 }
