@@ -46,13 +46,8 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
     .getByRole("link", { name: /Large league with long team names/ })
     .click();
   const started = Date.now();
-  if (info.project.name === "mobile") {
-    await page.getByRole("tab", { name: "Standings", exact: true }).focus();
-    await page.keyboard.press("ArrowLeft");
-  } else {
-    await page.getByRole("tab", { name: "Overview", exact: true }).focus();
-    await page.keyboard.press("ArrowRight");
-  }
+  await page.getByRole("tab", { name: "Standings", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
   await expect(
     page.getByRole("tab", { name: "Fixtures", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
@@ -66,24 +61,28 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
     fullPage: false,
   });
   await page.getByRole("button", { name: "Tournament actions" }).click();
+  const popupPromise = page.waitForEvent("popup");
   await page.getByRole("link", { name: /Public page/ }).click();
-  await page.getByRole("button", { name: "Tournament information" }).click();
+  const publicPage = await popupPromise;
+  await publicPage
+    .getByRole("button", { name: "Tournament information" })
+    .click();
   await expect(
-    page.getByText("Public view · refreshes every 15s"),
+    publicPage.getByText("Public view · refreshes every 15s"),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
-  await checkAccessibility(page);
-  await page.evaluate((): void => {
+  await publicPage.keyboard.press("Escape");
+  await checkAccessibility(publicPage);
+  await publicPage.evaluate((): void => {
     document.documentElement.style.fontSize = "200%";
   });
   await expect(
-    page.getByRole("tab", { name: "Fixtures", exact: true }),
+    publicPage.getByRole("tab", { name: "Fixtures", exact: true }),
   ).toBeVisible();
-  await page.screenshot({
+  await publicPage.screenshot({
     path: `e2e/screenshots/${info.project.name}-zoom.png`,
     fullPage: false,
   });
-  const navigationFits = await page
+  const navigationFits = await publicPage
     .locator(".nav a")
     .evaluateAll((elements: HTMLElement[]): boolean =>
       elements.every(
@@ -92,7 +91,7 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
       ),
     );
   expect(navigationFits).toBe(true);
-  const navigationContained = await page
+  const navigationContained = await publicPage
     .locator(".nav")
     .evaluate((element: HTMLElement): boolean => {
       const bottom = element.getBoundingClientRect().bottom;
@@ -102,7 +101,7 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
       );
     });
   expect(navigationContained).toBe(true);
-  const overflow = await page.evaluate(
+  const overflow = await publicPage.evaluate(
     (): boolean => document.documentElement.scrollWidth > window.innerWidth,
   );
   expect(overflow).toBe(false);

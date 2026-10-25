@@ -504,7 +504,15 @@ test("the title menu groups tournament tools, stats, sharing, and public viewing
   expect(
     screen.getByRole("button", { name: "Share tournament" }),
   ).toBeVisible();
-  expect(screen.getByRole("link", { name: "Public page" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: /Public page/ })).toHaveAttribute(
+    "target",
+    "_blank",
+  );
+  expect(screen.getByRole("link", { name: /Public page/ })).toHaveAttribute(
+    "rel",
+    "noopener noreferrer",
+  );
+  expect(screen.getByRole("link", { name: /Public page/ })).toHaveAttribute(
     "href",
     "/t/ARENA2026",
   );

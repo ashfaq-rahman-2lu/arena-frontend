@@ -1,3 +1,4 @@
+import { Pencil, UserPlus } from "lucide-react";
 import { DraftNavigationBoundary } from "../../shared/hooks/use-dirty-draft";
 import {
   useState,
@@ -52,7 +53,7 @@ export function TournamentTools({
         className="button secondary small"
         onClick={(): void => setMode("NAME")}
       >
-        Edit tournament name
+        <Pencil size={18} aria-hidden="true" /> Edit tournament name
       </button>
       {canAdd(t) && (
         <button
@@ -60,7 +61,7 @@ export function TournamentTools({
           className="button secondary small"
           onClick={(): void => setMode("TEAMS")}
         >
-          Add teams
+          <UserPlus size={18} aria-hidden="true" /> Add teams
         </button>
       )}
       {mode && (

@@ -1470,24 +1470,55 @@ h3 {
   right: 0;
   top: calc(100% + 8px);
   z-index: 5;
-  width: min(300px, calc(100vw - 40px));
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
   display: grid;
-  gap: 10px;
-  padding: 16px;
+  gap: 0;
+  padding: 6px;
   background: var(--panel-light);
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
 .management-actions .tournament-tools {
   display: grid;
-  gap: 10px;
+  gap: 0;
   margin: 0;
+  min-width: 0;
 }
 .management-actions .button,
 .management-actions .text-button {
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
   min-height: 44px;
   width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.management-actions svg {
+  width: 18px;
+  height: 18px;
+  justify-self: center;
+}
+.management-actions .button:hover:not(:disabled),
+.management-actions .text-button:hover {
+  background: var(--panel);
+  color: var(--lime);
+}
+.management-actions .button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 @media (max-width: 600px) {
   .tournament-management .management-actions {
@@ -1501,37 +1532,88 @@ h3 {
   top: 0;
   z-index: 4;
   display: flex;
-  align-items: stretch;
-  gap: 8px;
-  margin-bottom: 20px;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
   background: var(--background);
   border-bottom: 1px solid var(--line);
 }
 .tournament-navigation .tournament-tabs {
   flex: 1;
+  min-width: 0;
+  gap: 4px;
   margin: 0;
   border-bottom: 0;
+  overflow: visible;
 }
-.tournament-navigation button {
+.tournament-navigation .tournament-tabs button,
+.navigation-tab-measure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
   min-height: 44px;
-}
-.tournament-tabs button {
-  padding: 14px 18px;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
   font-size: 0.8125rem;
-  color: var(--text-secondary);
-}
-.more-sections {
-  align-self: center;
+  font-weight: 600;
+  line-height: 1.4;
   white-space: nowrap;
+}
+.tournament-navigation .tournament-tabs button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.tournament-navigation .tournament-tabs button.active {
+  color: var(--lime);
+  border-bottom-color: var(--lime);
+}
+.more-sections,
+.navigation-more-measure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.more-sections:hover,
+.more-sections[aria-expanded="true"] {
+  color: var(--lime);
+  background: var(--panel-light);
+}
+.navigation-measurements {
+  position: fixed;
+  left: 0;
+  top: 0;
+  display: flex;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout;
 }
 .more-section-tabs {
   position: absolute;
   right: 0;
-  top: 100%;
+  top: calc(100% + 4px);
   z-index: 6;
   display: grid;
-  padding: 8px;
-  width: min(280px, calc(100vw - 40px));
+  padding: 6px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
   max-height: calc(100dvh - 100px);
   overflow-y: auto;
   background: var(--panel-light);
@@ -1542,32 +1624,27 @@ h3 {
   display: none;
 }
 .more-section-tabs button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
   text-align: left;
-  justify-content: flex-start;
+  overflow-wrap: anywhere;
 }
-.more-section-tabs button[aria-selected="true"] {
+.more-section-tabs button:hover,
+.more-section-tabs button[aria-checked="true"] {
   color: var(--lime);
+  background: var(--panel);
 }
 .icon-button {
   min-height: 44px;
   min-width: 44px;
-}
-@media (max-width: 600px) {
-  .tournament-navigation {
-    gap: 4px;
-  }
-  .tournament-navigation .tournament-tabs {
-    gap: 0;
-  }
-  .tournament-navigation .tournament-tabs button {
-    padding: 12px 10px;
-    font-size: 0.8125rem;
-  }
-  .more-sections {
-    padding: 10px;
-    max-width: 45%;
-    white-space: normal;
-  }
 }
 
 .standings-panel {
@@ -2990,10 +3067,6 @@ td:nth-child(2) {
   .tournament-page {
     padding-top: 16px;
   }
-  .tournament-tabs button {
-    font-size: 0.75rem;
-    padding: 14px 17px;
-  }
   .standings-panel {
     padding: 0;
   }
@@ -3269,7 +3342,8 @@ h3 {
 .skip-link {
   position: absolute;
   left: 16px;
-  top: -80px;
+  top: 0;
+  transform: translateY(calc(-100% - 12px));
   z-index: 100;
   background: var(--lime);
   color: #10120e;
@@ -3277,6 +3351,7 @@ h3 {
 }
 .skip-link:focus {
   top: 12px;
+  transform: none;
 }
 .sr-only {
   position: absolute;
@@ -3375,6 +3450,171 @@ h3 {
   font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }
+.team-stats-panel {
+  min-width: 0;
+  padding: 12px;
+  --stats-divider: #414a36;
+}
+.team-stats-selectors {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 8px;
+}
+.team-stats-selectors .field {
+  margin: 0;
+  min-width: 0;
+}
+.team-stats-selectors select {
+  min-height: 44px;
+  width: 100%;
+  padding: 10px 8px;
+}
+.team-stats-selection {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 8px 0;
+}
+.team-stats-chips {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.team-stats-chips li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-light);
+  font-size: 0.8125rem;
+}
+.team-stats-chips button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 32px;
+  min-height: 30px;
+  padding: 4px 6px;
+  color: var(--text);
+  font-size: inherit;
+  line-height: 1.4;
+}
+.team-stats-chips .team-stats-hint button {
+  padding-left: 8px;
+}
+.team-stats-hint {
+  display: inline-flex;
+  position: relative;
+}
+.team-stats-hint [role="tooltip"] {
+  position: fixed;
+  z-index: 30;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 1px solid var(--stats-divider);
+  border-radius: var(--radius);
+  background: var(--panel-light);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 16px #0005;
+}
+.team-stats-information {
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+  margin-left: auto;
+}
+.team-stats-information button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-height: 32px;
+  color: var(--text-secondary);
+}
+.team-stats-table-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 6px;
+}
+.team-stats-table-actions button {
+  min-height: 44px;
+}
+.team-comparison-scroll {
+  position: relative;
+  container-type: inline-size;
+  max-width: 100%;
+  border: 1px solid var(--stats-divider);
+  border-radius: var(--radius);
+}
+.team-comparison-table {
+  font-size: 0.8125rem;
+  table-layout: fixed;
+  white-space: normal;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.team-comparison-table th,
+.team-comparison-table td {
+  padding: 8px 6px;
+  border: 0;
+  border-bottom: 1px solid var(--stats-divider);
+  font-size: inherit;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.team-comparison-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.team-comparison-table th:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  z-index: 1;
+  width: min(7rem, 40cqw);
+}
+.team-comparison-table thead th {
+  background: var(--panel-light);
+  font-weight: 600;
+}
+.team-comparison-table thead th:first-child {
+  background: var(--panel-light);
+  z-index: 2;
+}
+.team-comparison-table.comparing {
+  table-layout: auto;
+}
+.team-comparison-table.comparing th,
+.team-comparison-table.comparing td {
+  min-width: clamp(5rem, 22vw, 8rem);
+  max-width: 12rem;
+}
+.team-comparison-table.comparing th:first-child {
+  min-width: min(7rem, 40cqw);
+  max-width: min(7rem, 40cqw);
+}
+.team-comparison-table .stat-coverage {
+  display: inline;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
 .stat-coverage {
   display: block;
   margin-top: 0.2rem;
