@@ -21,6 +21,7 @@ export type PairingOptions = Partial<
   Pick<components["schemas"]["PairingInput"], "method" | "drawToken" | "slots">
 >;
 export type TeamStats = components["schemas"]["TeamStatsView"];
+export type PublicMatchStats = components["schemas"]["PublicMatchStatsView"];
 export type StatUsage = components["schemas"]["StatUsageView"];
 export type ArchiveStatsPreview =
   components["schemas"]["ArchiveStatsPreviewView"];
@@ -199,6 +200,11 @@ export interface ArenaApi {
   get: (id: string, signal?: AbortSignal) => Promise<Tournament>;
   public: (publicId: string, signal?: AbortSignal) => Promise<Tournament>;
   teamStats: (publicId: string, signal?: AbortSignal) => Promise<TeamStats>;
+  publicMatchStats: (
+    publicId: string,
+    matchId: string,
+    signal?: AbortSignal,
+  ) => Promise<PublicMatchStats>;
   statUsage: () => Promise<StatUsage>;
   enableStats: (id: string, expectedRevision: number) => Promise<Tournament>;
   archiveStatsPreview: (id: string) => Promise<ArchiveStatsPreview>;
@@ -400,6 +406,17 @@ export function createArenaApi(
           params: { path: { publicId } },
           signal,
         }),
+      ),
+    publicMatchStats: (
+      publicId: string,
+      matchId: string,
+      signal?: AbortSignal,
+    ): Promise<PublicMatchStats> =>
+      unwrap(
+        client.GET(
+          "/api/v1/public/tournaments/{publicId}/matches/{matchId}/stats",
+          { params: { path: { publicId, matchId } }, signal },
+        ),
       ),
     statUsage: (): Promise<StatUsage> =>
       unwrap(client.GET("/api/v1/tournaments/stats/usage")),

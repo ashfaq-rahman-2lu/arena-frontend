@@ -45,4 +45,10 @@ export const queryKeys = {
     "tournament",
     publicId,
   ],
+  publicMatchStats: (publicId: string, matchId: string): readonly string[] => [
+    "public",
+    "match-stats",
+    publicId,
+    matchId,
+  ],
 };

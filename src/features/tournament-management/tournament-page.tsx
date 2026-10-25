@@ -6,6 +6,7 @@ import { FixtureRounds } from "./fixture-rounds";
 import { TournamentTools } from "./tournament-tools";
 import { KnockoutBoard } from "./knockout-board";
 import { KnockoutPairing } from "./knockout-pairing";
+import { PublicMatchStatsDialog } from "./public-match-stats-dialog";
 import type { PairingOptions } from "../../shared/api/arena-api";
 interface TournamentPageProps {
   admin?: boolean;
@@ -135,6 +136,7 @@ export function TournamentPage({
     resultTriggerRef.current?.focus();
   };
   const [selected, setSelected] = useState<Match | null>(null),
+    [publicStatsMatch, setPublicStatsMatch] = useState<Match | null>(null),
     [showPreview, setShowPreview] = useState(false),
     [showPairing, setShowPairing] = useState(false),
     [showQualification, setShowQualification] = useState(false),
@@ -457,6 +459,16 @@ export function TournamentPage({
             {played ? <Pencil size={13} /> : <PlusIcon />}
             <span>{played ? "Edit" : "Add"}</span>
           </button>
+        ) : played && t.statsEnabled ? (
+          <button
+            type="button"
+            className="button small ghost fixture-stats-trigger"
+            aria-label={`View stats: ${name(m.homeId)} vs ${name(m.awayId)}`}
+            onClick={(): void => setPublicStatsMatch(m)}
+          >
+            <ChartNoAxesCombined size={14} aria-hidden="true" />
+            <span>View stats</span>
+          </button>
         ) : (
           <span className={`fixture-state ${played ? "lime-text" : "muted"}`}>
             {played ? <Check size={16} /> : <span className="status-dot" />}
@@ -695,7 +707,12 @@ export function TournamentPage({
           </section>
         )}
         {tab === "knockout" && (
-          <KnockoutBoard t={t} admin={admin} onSelect={setSelected} />
+          <KnockoutBoard
+            t={t}
+            admin={admin}
+            onSelect={setSelected}
+            onViewStats={setPublicStatsMatch}
+          />
         )}
         {tab === "teams" && (
           <div className="team-grid">
@@ -822,6 +839,15 @@ export function TournamentPage({
             }
           />
         </Suspense>
+      )}
+      {publicStatsMatch && !admin && (
+        <PublicMatchStatsDialog
+          publicId={t.publicId}
+          matchId={publicStatsMatch.id}
+          homeName={name(publicStatsMatch.homeId)}
+          awayName={name(publicStatsMatch.awayId)}
+          onClose={(): void => setPublicStatsMatch(null)}
+        />
       )}
       {showPreview && (
         <Modal

@@ -9,11 +9,13 @@ interface KnockoutBoardProps {
   t: Tournament;
   admin: boolean;
   onSelect: (match: Match) => void;
+  onViewStats: (match: Match) => void;
 }
 export function KnockoutBoard({
   t,
   admin,
   onSelect,
+  onViewStats,
 }: KnockoutBoardProps): ReactElement {
   const name = (id: string): string =>
     t.entrants.find((e: Tournament["entrants"][number]): boolean => e.id === id)
@@ -77,24 +79,39 @@ export function KnockoutBoard({
                 )}
                 {t.matches
                   .filter((m: Match): boolean => m.knockoutTieId === tie.id)
-                  .map((m: Match): ReactElement => (
-                    <button
-                      type="button"
-                      key={m.id}
-                      className="bracket-match"
-                      disabled={!admin}
-                      onClick={(): void => onSelect(m)}
-                      aria-label={`${admin ? "Edit" : "View"} ${name(m.homeId)} vs ${name(m.awayId)}, leg ${m.leg}`}
-                    >
-                      <span>
-                        Leg {m.leg} · {name(m.homeId)}{" "}
-                        <b>{m.homeScore ?? "—"}</b>
-                      </span>
-                      <span>
-                        {name(m.awayId)} <b>{m.awayScore ?? "—"}</b>
-                      </span>
-                    </button>
-                  ))}
+                  .map((m: Match): ReactElement => {
+                    const canViewStats: boolean =
+                      !admin &&
+                      t.statsEnabled &&
+                      m.homeScore !== null &&
+                      m.awayScore !== null;
+                    return (
+                      <button
+                        type="button"
+                        key={m.id}
+                        className="bracket-match"
+                        disabled={!admin && !canViewStats}
+                        onClick={(): void => {
+                          if (admin) onSelect(m);
+                          else if (canViewStats) onViewStats(m);
+                        }}
+                        aria-label={`${admin ? "Edit" : canViewStats ? "View stats:" : "Match"} ${name(m.homeId)} vs ${name(m.awayId)}, leg ${m.leg}`}
+                      >
+                        <span>
+                          Leg {m.leg} · {name(m.homeId)}{" "}
+                          <b>{m.homeScore ?? "—"}</b>
+                        </span>
+                        <span>
+                          {name(m.awayId)} <b>{m.awayScore ?? "—"}</b>
+                        </span>
+                        {canViewStats && (
+                          <span className="bracket-match-stats-label">
+                            View stats
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
               </article>
             ))}
             {round.byes.map(
