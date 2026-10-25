@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { teamFixturesSearch } from "./fixture-navigation";
 import { Columns3 } from "lucide-react";
 import {
   useId,
@@ -218,7 +220,16 @@ export function StandingsTable({
                             entrant.id === row.entrantId,
                         )}
                       />
-                      <strong>{row.name}</strong>
+                      <strong>
+                        <Link
+                          className="team-fixtures-link"
+                          to={teamFixturesSearch(row.entrantId)}
+                          state={{ focusFixtures: true }}
+                          aria-label={`View fixtures for ${row.name}`}
+                        >
+                          {row.name}
+                        </Link>
+                      </strong>
                       {row.tieSignature &&
                         !row.tieResolved &&
                         row.played > 0 && (

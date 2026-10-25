@@ -133,7 +133,7 @@ function TournamentInformation({
     { label: "Match stats", value: t.statsEnabled ? "Enabled" : "Not enabled" },
     {
       label: "Viewing mode",
-      value: admin ? "Admin view" : "Public view · refreshes every 15s",
+      value: admin ? "Admin view" : "Public view · refreshes every 1 min",
     },
   ];
   if (t.format !== "KNOCKOUT")

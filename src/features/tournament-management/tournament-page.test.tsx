@@ -383,7 +383,7 @@ function showOrganizerPage(
   return cache;
 }
 
-test("fixture progress is global and result actions respect dropdown filters", async (): Promise<void> => {
+test("tournament progress is not duplicated and result actions respect dropdown filters", async (): Promise<void> => {
   const cache = showOrganizerPage({
     ...tournament,
     matches: [
@@ -391,7 +391,10 @@ test("fixture progress is global and result actions respect dropdown filters", a
       { ...match, id: "pending", round: 2, homeScore: null, awayScore: null },
     ],
   });
-  expect(await screen.findByText("1/2 matches played")).toBeVisible();
+  await screen.findByRole("combobox", { name: "Filter fixture status" });
+  expect(
+    screen.queryByText(/Tournament:.*matches played/),
+  ).not.toBeInTheDocument();
   expect(
     screen.queryByRole("group", { name: "Fixture status shortcuts" }),
   ).not.toBeInTheDocument();
@@ -399,7 +402,9 @@ test("fixture progress is global and result actions respect dropdown filters", a
     screen.getByRole("combobox", { name: "Filter fixture status" }),
     "PENDING",
   );
-  expect(screen.getByText("1/2 matches played")).toBeVisible();
+  expect(
+    screen.queryByText(/Tournament:.*matches played/),
+  ).not.toBeInTheDocument();
   expect(
     screen.getByRole("button", { name: "Add result: Alpha vs Beta, round 2" }),
   ).toHaveTextContent(/^Add$/);
@@ -623,6 +628,8 @@ test("changing a fixture filter resets expanded rounds without changing global p
   expect(
     screen.getByRole("button", { name: /League · Round 3/ }),
   ).toHaveAttribute("aria-expanded", "false");
-  expect(screen.getByText("1/3 matches played")).toBeVisible();
+  expect(
+    screen.queryByText(/Tournament:.*matches played/),
+  ).not.toBeInTheDocument();
   cache.clear();
 });

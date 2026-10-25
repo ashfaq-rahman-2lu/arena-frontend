@@ -68,7 +68,7 @@ test("sign in, paginated dashboard, keyboard tabs, public viewing and long fixtu
     .getByRole("button", { name: "Tournament information" })
     .click();
   await expect(
-    publicPage.getByText("Public view · refreshes every 15s"),
+    publicPage.getByText("Public view · refreshes every 1 min"),
   ).toBeVisible();
   await publicPage.keyboard.press("Escape");
   await checkAccessibility(publicPage);
