@@ -121,6 +121,7 @@ export function MatchEditor({
     [upload, setUpload] = useState<UploadDraft | null>(null),
     [mapping, setMapping] = useState("");
   const touched = useRef<Set<keyof DraftScores>>(new Set()),
+    manuallyTouched = useRef<Set<keyof DraftScores>>(new Set()),
     touchedStats = useRef<Set<string>>(new Set()),
     mounted = useRef(true),
     requestId = useRef(0),
@@ -179,6 +180,7 @@ export function MatchEditor({
       : null;
   const change = (key: keyof DraftScores, value: string): void => {
     touched.current.add(key);
+    manuallyTouched.current.add(key);
     setFieldError(null);
     setScores((old: DraftScores): DraftScores => ({
       ...old,
@@ -209,8 +211,10 @@ export function MatchEditor({
       "homeTiebreak",
       "awayTiebreak",
       "winner",
-    ] as const)
+    ] as const) {
       touched.current.add(key);
+      manuallyTouched.current.delete(key);
+    }
     setScores(next);
     setStatsDraft((old: MatchStatDraft[]): MatchStatDraft[] =>
       old.map((stat: MatchStatDraft): MatchStatDraft => ({
@@ -320,6 +324,10 @@ export function MatchEditor({
     const controller = new AbortController();
     abort.current = controller;
     const active = ++requestId.current;
+    manuallyTouched.current.forEach((key: keyof DraftScores): void => {
+      touched.current.delete(key);
+    });
+    manuallyTouched.current.clear();
     setExtraction({ status: "reading", requestId: active });
     try {
       const suggestion = await extractionMutation.mutateAsync({
@@ -896,6 +904,7 @@ export function MatchEditor({
                 setScores(value);
                 setInitial(JSON.stringify(value));
                 touched.current.clear();
+                manuallyTouched.current.clear();
                 setState({ status: "editing" });
               }}
               onReapply={(): void => {
