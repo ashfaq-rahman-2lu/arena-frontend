@@ -721,9 +721,7 @@ test("reading a scorecard fills a previously edited then cleared score", async (
   await waitFor((): void => {
     expect(home).toHaveValue(4);
   });
-  expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(
-    5,
-  );
+  expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(5);
   cache.clear();
 });
 test("reading a scorecard replaces a score edited before extraction starts", async (): Promise<void> => {
