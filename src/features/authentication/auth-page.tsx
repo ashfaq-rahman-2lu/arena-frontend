@@ -24,6 +24,7 @@ export function AuthPage(): React.JSX.Element {
   const [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
+    [confirmPassword, setConfirmPassword] = useState(""),
     [pending, setPending] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
@@ -39,6 +40,7 @@ export function AuthPage(): React.JSX.Element {
     forgot: "Back in the game.",
     reset: "A fresh start.",
     verify: "Make it official.",
+    "email-confirm": "Confirm your new email.",
   };
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -60,11 +62,22 @@ export function AuthPage(): React.JSX.Element {
         await api.forgot(email);
         setMessage("If your account is eligible, a reset link is on its way.");
       } else if (mode === "reset") {
+        if (password !== confirmPassword) {
+          setError("Passwords do not match.");
+          return;
+        }
         await api.reset(params.get("token") || "", password);
-        setMessage("Password updated. You can now sign in.");
+        cache.clear();
+        api.resetIdentity();
+        window.location.replace("/auth/login?notice=password_updated");
       } else if (mode === "verify") {
         await api.verify(params.get("token") || "");
         setMessage("Email verified. You can now sign in.");
+      } else if (mode === "email-confirm") {
+        await api.confirmEmailChange(params.get("token") || "");
+        cache.clear();
+        api.resetIdentity();
+        window.location.replace("/auth/login?notice=email_updated");
       } else throw new Error("Unknown sign-in page");
     } catch (e) {
       setError(errorMessage(e));
@@ -98,6 +111,27 @@ export function AuthPage(): React.JSX.Element {
       </div>
       <div className="auth-card">
         <h2>{titles[mode] || titles.login}</h2>
+        {mode === "login" && params.get("notice") === "password_updated" && (
+          <div className="success-message" role="status">
+            Password updated. Sign in again.
+          </div>
+        )}
+        {mode === "login" && params.get("notice") === "email_updated" && (
+          <div className="success-message" role="status">
+            Email updated. Sign in again.
+          </div>
+        )}
+        {mode === "login" && params.get("error") === "google_cancelled" && (
+          <div className="inline-error" role="alert">
+            Google sign-in was cancelled. You can try again or use your
+            password.
+          </div>
+        )}
+        {mode === "login" && params.get("error") === "google_failed" && (
+          <div className="inline-error" role="alert">
+            Google sign-in could not be completed. Please start again.
+          </div>
+        )}
         <p>
           {mode === "register"
             ? "Create your admin account to get started."
@@ -105,13 +139,17 @@ export function AuthPage(): React.JSX.Element {
               ? "Sign in to manage your competitions."
               : mode === "verify"
                 ? "Confirm your email address below."
-                : "We’ll get you back to your tournaments."}
+                : mode === "email-confirm"
+                  ? "Confirm the new email address for your account."
+                  : "We’ll get you back to your tournaments."}
         </p>
         {["login", "register"].includes(mode) && session?.googleEnabled && (
           <>
             <a
               className="button google-button"
-              href={apiUrl("/api/v1/auth/google")}
+              href={apiUrl(
+                `/api/v1/auth/google?returnTo=${encodeURIComponent(safeReturnUrl(params.get("returnTo")))}`,
+              )}
             >
               <span className="google-g">G</span>Continue with Google
             </a>
@@ -188,6 +226,21 @@ export function AuthPage(): React.JSX.Element {
             <Link className="forgot-link" to="/auth/forgot">
               Forgot password?
             </Link>
+          )}
+          {mode === "reset" && (
+            <Field label="Confirm new password">
+              <input
+                type="password"
+                required
+                minLength={10}
+                maxLength={128}
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>): void =>
+                  setConfirmPassword(event.currentTarget.value)
+                }
+              />
+            </Field>
           )}
           {error && (
             <div role="alert" className="inline-error">

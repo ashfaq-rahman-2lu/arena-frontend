@@ -2,7 +2,7 @@ import { API_ORIGIN } from "./api-origin";
 export type Entrant = components["schemas"]["Entrant"];
 export type Message = components["schemas"]["MessageResult"];
 import createClient from "openapi-fetch";
-import type { components, paths } from "../../generated/api";
+import type { components, operations, paths } from "../../generated/api";
 export type Tournament = components["schemas"]["TournamentView"];
 export type Match = components["schemas"]["Match"];
 export type Session = components["schemas"]["SessionView"];
@@ -12,6 +12,9 @@ export type ResultInput = components["schemas"]["ResultInput"];
 export type Impact = components["schemas"]["CorrectionImpact"];
 export type Suggestion = components["schemas"]["ExtractionSuggestion"];
 export type TournamentPage = components["schemas"]["TournamentPage"];
+export type FollowingPage = components["schemas"]["FollowedTournamentPageView"];
+export type EmailChangeResult =
+  operations["AuthController_requestEmailChange"]["responses"][201]["content"]["application/json"];
 export type HistoryPage = components["schemas"]["HistoryPage"];
 export type EntrantPage = components["schemas"]["EntrantPage"];
 export type ImportEntrant = components["schemas"]["ImportEntrant"];
@@ -192,6 +195,25 @@ export interface ArenaApi {
   resend: (email: string) => Promise<Message>;
   verify: (token: string) => Promise<Message>;
   reset: (token: string, password: string) => Promise<Message>;
+  updateProfile: (name: string) => Promise<Message>;
+  setupPassword: () => Promise<Message>;
+  changePassword: (
+    currentPassword: string,
+    password: string,
+  ) => Promise<Message>;
+  requestEmailChange: (
+    email: string,
+    currentPassword?: string,
+  ) => Promise<EmailChangeResult>;
+  confirmEmailChange: (token: string) => Promise<Message>;
+  following: (
+    page: number,
+    limit: number,
+    signal?: AbortSignal,
+  ) => Promise<FollowingPage>;
+  isFollowing: (publicId: string) => Promise<boolean>;
+  follow: (publicId: string) => Promise<void>;
+  unfollow: (publicId: string) => Promise<void>;
   logout: () => Promise<Session>;
   list: (
     query: TournamentFilters,
@@ -314,6 +336,25 @@ export function createArenaApi(
       );
     return data;
   }
+  async function unwrapNoContent(
+    promise: Promise<TransportResult<never>>,
+  ): Promise<void> {
+    const epoch = generation;
+    const { error, response } = await promise;
+    if (epoch !== generation)
+      throw new ApiError(
+        "Your session changed. Please try again.",
+        409,
+        "IDENTITY_CHANGED",
+      );
+    if (!response.ok) throw safeApiError(error, response.status);
+    if (response.status !== 204)
+      throw new ApiError(
+        "The server returned an unexpected response.",
+        502,
+        "INVALID_RESPONSE",
+      );
+  }
   function getSession(): Promise<Session> {
     if (sessionFlight) return sessionFlight;
     const epoch = generation;
@@ -374,6 +415,65 @@ export function createArenaApi(
           body: { token, password },
         }),
       ),
+    updateProfile: (name: string): Promise<Message> =>
+      unwrap(client.PATCH("/api/v1/auth/profile", { body: { name } })),
+    setupPassword: (): Promise<Message> =>
+      unwrap(client.POST("/api/v1/auth/password/setup")),
+    changePassword: (
+      currentPassword: string,
+      password: string,
+    ): Promise<Message> =>
+      unwrap(
+        client.POST("/api/v1/auth/password/change", {
+          body: { currentPassword, password },
+        }),
+      ),
+    requestEmailChange: (
+      email: string,
+      currentPassword?: string,
+    ): Promise<EmailChangeResult> =>
+      unwrap(
+        client.POST("/api/v1/auth/email-change", {
+          body: { email, ...(currentPassword ? { currentPassword } : {}) },
+        }),
+      ),
+    confirmEmailChange: (token: string): Promise<Message> =>
+      unwrap(
+        client.POST("/api/v1/auth/email-change/confirm", { body: { token } }),
+      ),
+    following: (
+      page: number,
+      limit: number,
+      signal?: AbortSignal,
+    ): Promise<FollowingPage> =>
+      unwrap(
+        client.GET("/api/v1/following", {
+          params: { query: { page, limit } },
+          signal,
+        }),
+      ),
+    isFollowing: async (publicId: string): Promise<boolean> =>
+      (
+        await unwrap(
+          client.GET("/api/v1/following/{publicId}", {
+            params: { path: { publicId } },
+          }),
+        )
+      ).following,
+    follow: async (publicId: string): Promise<void> => {
+      await unwrapNoContent(
+        client.PUT("/api/v1/following/{publicId}", {
+          params: { path: { publicId } },
+        }),
+      );
+    },
+    unfollow: async (publicId: string): Promise<void> => {
+      await unwrapNoContent(
+        client.DELETE("/api/v1/following/{publicId}", {
+          params: { path: { publicId } },
+        }),
+      );
+    },
     logout: async (): Promise<Session> => {
       await unwrap(client.POST("/api/v1/auth/logout"));
       csrf = "";
