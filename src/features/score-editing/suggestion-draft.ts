@@ -35,7 +35,10 @@ export function mergeSuggestedScores(
 ): DraftScores {
   const next = { ...old };
   for (const [key, value] of Object.entries(values))
-    if (value != null && !touched.has(key))
+    if (
+      value != null &&
+      (!touched.has(key) || next[key as keyof DraftScores] === "")
+    )
       next[key as keyof DraftScores] = String(value);
   return next;
 }

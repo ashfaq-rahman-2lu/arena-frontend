@@ -58,6 +58,14 @@ describe("scorecard drafts", (): void => {
     expect(merged.away).toBe("1");
     expect(draft.away).toBe("");
   });
+  it("fills a manually cleared field from the scorecard suggestion", (): void => {
+    const merged = mergeSuggestedScores(
+      { home: "", away: "", homeTiebreak: "", awayTiebreak: "", winner: "" },
+      { home: 3 },
+      new Set(["home"]),
+    );
+    expect(merged.home).toBe("3");
+  });
   it("does not fill unreadable scores with zero", (): void => {
     const merged = mergeSuggestedScores(
       { home: "", away: "", homeTiebreak: "", awayTiebreak: "", winner: "" },

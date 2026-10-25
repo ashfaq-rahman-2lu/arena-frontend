@@ -698,6 +698,55 @@ test("an active extraction fills only untouched fields", async (): Promise<void>
   expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(5);
   cache.clear();
 });
+test("reading a scorecard fills a previously edited then cleared score", async (): Promise<void> => {
+  vi.spyOn(api, "extract").mockResolvedValue({
+    matched: true,
+    observedSides: [
+      { name: "Alpha", score: 4, tiebreak: null },
+      { name: "Beta", score: 5, tiebreak: null },
+    ],
+    homeScore: 4,
+    awayScore: 5,
+    homeTiebreak: null,
+    awayTiebreak: null,
+    warnings: [],
+  });
+  const cache = showSwapEditor();
+  const home = screen.getByRole("spinbutton", { name: "Alpha score" });
+  await userEvent.clear(home);
+  await userEvent.type(home, "3");
+  await userEvent.keyboard("{Backspace}");
+  expect(home).toHaveValue(null);
+  await readSwapImage("cleared-score.png");
+  await waitFor((): void => {
+    expect(home).toHaveValue(4);
+  });
+  expect(screen.getByRole("spinbutton", { name: "Beta score" })).toHaveValue(5);
+  cache.clear();
+});
+test("reading a scorecard replaces a score edited before extraction starts", async (): Promise<void> => {
+  vi.spyOn(api, "extract").mockResolvedValue({
+    matched: true,
+    observedSides: [
+      { name: "Alpha", score: 4, tiebreak: null },
+      { name: "Beta", score: 5, tiebreak: null },
+    ],
+    homeScore: 4,
+    awayScore: 5,
+    homeTiebreak: null,
+    awayTiebreak: null,
+    warnings: [],
+  });
+  const cache = showSwapEditor();
+  const home = screen.getByRole("spinbutton", { name: "Alpha score" });
+  await userEvent.clear(home);
+  await userEvent.type(home, "3");
+  await readSwapImage("replace-edited-score.png");
+  await waitFor((): void => {
+    expect(home).toHaveValue(4);
+  });
+  cache.clear();
+});
 test("session expiry preserves scores and provides an internal sign-in path", async (): Promise<void> => {
   vi.spyOn(api, "impact").mockRejectedValue(
     new ApiError("Sign in to continue", 401, "UNAUTHENTICATED"),
