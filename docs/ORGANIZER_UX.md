@@ -153,6 +153,51 @@ Current-phase authored changes:
 
 Earlier uncommitted work is preserved. No other authored files were created/deleted/renamed. No backend, API contract, configuration, environment, dependency, database, account or deployment changes were made. No real result writes were submitted. Temporary Playwright preview servers stopped after verification. Build outputs, caches, reports and the six existing tournament-swap desktop/mobile controls/stats/CODM screenshot paths were regenerated; the failing unit-test log is listed below.
 
+## Team comparisons and compact action menu (earlier uncommitted work)
+
+The frontend checkout was clean before this change. All files listed in this section belong to this task; earlier sections describe already committed work.
+
+Team stats now starts with the first alphabetical team with recorded stats (or the first team when none have records). Team and Compare with selectors support ordered comparisons of any number of teams, prevent duplicates, and provide removable chips. Removing the primary team promotes the next selection; removing all teams shows a prompt. Initial and deliberate selections persist through tab changes and refreshes, and reset on a different tournament. One team uses Stat / Value, while every comparison uses Stat / team columns, including two-team comparisons. Thirteen canonical rows match values by stat key, preserving totals, average possession, percentages, zeros, missing-value dashes and recorded/played match coverage. The table scrolls locally with sticky stat names and wrapping headings. Loading, retryable errors, no teams, no recorded stats, and no selection have explicit states. Existing typed API calls and aggregation are unchanged.
+
+The tournament action panel now fits its longest title (up to 280px and viewport width), with 6px padding, no row gaps or card borders, and consistent 14px/600 typography, 18px icons and 44px minimum targets. Edit, add, enable/archive, share and public-page actions retain their order, permissions and behavior. Public page is a native new-tab link with noopener/noreferrer and an accessible announcement. Nested dialog dismissal retains the open menu and restores the originating item; Escape then dismisses the menu and restores its trigger.
+
+Authored inventory for this task:
+
+- `src/features/tournament-management/team-stats-panel.tsx` — new feature-owned selector, chips, canonical stat table, formatting, retained selection and load/error/empty presentation.
+- `src/features/tournament-management/team-stats-panel.test.tsx` — new behavior tests for initial/fallback selection, comparison layout, seven teams, duplicates, primary promotion, removal, owner/public permissions, tab retention, tournament reset, reordered/refreshed values, loading, retry and empty states.
+- `src/features/tournament-management/tournament-page.tsx` — mounts the keyed comparison component across tabs, adds enable/archive icons, and makes Public page an accessible native new-tab link using ArrowUpRight.
+- `src/features/tournament-management/tournament-page.test.tsx` — asserts new-tab target, security relationship and accessible link text.
+- `src/features/tournament-management/tournament-tools.tsx` — adds Pencil/UserPlus icons to existing name/team actions.
+- `src/styles.css` — compact consistent action rows; responsive selectors/chips, sticky stat cells, wrapping headings and local comparison scrolling.
+- `e2e/team-stats.spec.ts` — new isolated desktop/mobile comparison, menu styling/icon geometry, nested-dialog focus, keyboard new-tab navigation, owner/public permissions, enable action, accessibility, overflow and enlarged-text checks; writes ten screenshots.
+- `e2e/arena.spec.ts` — updates legacy acceptance navigation for standings-first tabs and follows the new public-page popup. This backend-seeded suite was updated but was not run in this isolated frontend verification.
+- `docs/ORGANIZER_UX.md` — records behavior, validation, scope and complete authored/generated artifact inventory.
+
+Verification: behavior tests first failed on missing selection/comparison/retry controls and new-tab attributes. All 104 unit/component tests, 3 tooling tests, typecheck, lint, formatting and production build pass. All 34 isolated desktop/mobile browser tests pass; the six new comparison/menu checks also pass after the final responsive width adjustment. The final 200% mobile check requires the sticky stat-name column to use less than 55% of the table viewport, leaving room for values. Screenshots use 375×812 mobile and 1440×900 desktop for comparisons, and include seven teams, long names and 200% text zoom. Tests use mocked API responses; no real tournament records were changed. Temporary production preview servers were started and stopped by Playwright. No backend, API, dependencies, configuration, environment, database or URL contracts changed.
+
+## Compact comparisons and adaptive tabs (current change)
+
+Design: retain Arena's dark olive palette and lime selection accents, with denser 13px table text, 12px panel padding, 8px/6px table cells and visible shared row dividers. Single-team headings now show the complete team name. Coverage appears inline as value · recorded/played, with full accessible descriptions. A compact Stats information hint replaces the guide paragraph. Selectors share a row when each has 9rem available; text zoom reflows them. Two short team columns fit beside stat names at 375px. More teams scroll locally, and the sticky stat column stays within 40% of the table viewport using container-relative sizing.
+
+Selected-team chips are approximately 32px high. Their labels use the first word capped at eight Unicode code points, with an ellipsis whenever any name text is omitted. Names and removal are separate controls: the shortened name opens a full-name hint through hover, focus or touch, while Remove uses the complete accessible team name. Escape and outside interactions dismiss hints. IDs continue to distinguish equal shortened labels. The information control shares the compact selection row rather than adding a full extra toolbar row.
+
+Navigation measures hidden noninteractive label spans and the available container through ResizeObserver, font readiness/loading and window resizing. It fits a prefix of complete tabs while reserving More only when necessary; the active section replaces the last fitting inactive section. More no longer repeats the active title and uses a compact chevron trigger with an intrinsic-width, viewport-capped menu. All tabs appear when they fit. Visible tab order, existing URLs, defaults, owner/public permissions and section availability remain unchanged. Menu items use radio selection semantics and support arrows, Home/End, Enter/Space, Tab, Escape and outside dismissal. Selecting a menu item waits for the route to activate before focusing its promoted tab. Resize focus follows the same section when possible, otherwise More/the active tab. At extreme text zoom a lone long active label wraps completely instead of clipping. Screenshot review also found the existing skip link used a fixed offscreen offset that leaked at enlarged text sizes; height-relative hiding now keeps it offscreen until focused, with a browser regression for both states.
+
+Baseline: this task started with the prior comparison/menu work already uncommitted. Earlier changes in tournament-page.tsx, tournament-page.test.tsx, tournament-tools.tsx and e2e/arena.spec.ts were left untouched in this task. Existing uncommitted comparison files, styles and documentation were extended without reverting earlier work.
+
+Authored files changed in this task:
+
+- `src/features/tournament-management/team-stats-panel.tsx` — compact name hints and chip labels, accessible inline coverage, team-name headings and condensed information/selection controls.
+- `src/features/tournament-management/team-stats-panel.test.tsx` — updated headings/coverage expectations; new duplicate-label, truncation, full-name hint, removal and information-hint tests.
+- `src/features/tournament-management/tournament-navigation.tsx` — replaces breakpoint grouping with measured tab fitting, active promotion, compact overflow menu, responsive focus recovery and asynchronous route focus handling.
+- `src/features/tournament-management/tournament-navigation.test.tsx` — new measured-layout behavior tests for fitting counts, resizing, promotion, keyboard/outside dismissal, delayed route activation and public knockout-only section availability.
+- `src/styles.css` — compact chips/selectors/information row, full-width cell separators, inline coverage, local table scrolling, container-sized sticky column, matched tab measurement styles and compact overflow menu; removes superseded breakpoint tab styling and fixes enlarged-text skip-link hiding.
+- `e2e/team-stats.spec.ts` — updates expected headings and menu semantics; adds two-team geometry/separator checks, chip/help accessibility and dynamic 320/375/480/640/900/1440px navigation plus 200% text zoom screenshots.
+- `e2e/organizer-layout.spec.ts` — uses the new overflow menu-item semantics in existing mobile navigation coverage.
+- `docs/ORGANIZER_UX.md` — records this phase's design, intentional behavior changes, baseline distinction, tests and full artifact inventory.
+
+Executed red checks: team-stats-panel.test.tsx had three expected missing-behavior failures, and tournament-navigation.test.tsx had two expected adaptive-navigation failures before production implementation. The focused tests then passed. An additional browser red check reproduced the enlarged-text skip-link leak before the CSS fix. All 110 unit/component tests, all 38 isolated desktop/mobile browser tests, all 3 tooling tests, typecheck, lint, formatting and the production build pass. Screenshots were inspected for compact two-team and seven-team comparisons, horizontal scrolling, complete separators, active tab visibility, intermediate widths and 200% text zoom. The final browser checks also verify the hidden skip link stays outside the viewport until keyboard focus. Browser fixtures mock the API; no real tournament data was changed. Playwright starts/stops temporary production preview servers. No backend, API, generated contracts, dependencies, configuration, environment, database or URL contract changes were made.
+
 ## Authored file changes
 
 All paths below are relative to the independently deployable frontend repository, `/Users/macbook/study_materials/pfffffs/projects/Tournament/frontend`. The first phase started from a clean working tree; the second phase continues the same UI work. No unrelated user changes were overwritten. The original fixture-rounds and shared Modal changes were retained without further edits in phase two.
@@ -177,22 +222,22 @@ All paths below are relative to the independently deployable frontend repository
 Build/test commands regenerated these ignored outputs. The prior phase's generated files were replaced as needed. No dependency installation, configuration, environment, generated API contract, or backend source changes were made. Existing Vite dependency prebundles were not changed.
 
 - `dist/_routes.json` — regenerated production build output.
-- `dist/assets/Home-DNEGF_mC.js` — regenerated production build output.
-- `dist/assets/auth-page-BuI16H5s.js` — regenerated production build output.
-- `dist/assets/dashboard-page-_ELlujGs.js` — regenerated production build output.
-- `dist/assets/index-Dh2lpRPi.js` — regenerated production build output.
-- `dist/assets/index-FYw-Ijyi.css` — regenerated production build output.
-- `dist/assets/match-editor-HCQV1vbG.js` — regenerated production build output.
-- `dist/assets/pagination-DmyW7apa.js` — regenerated production build output.
-- `dist/assets/public-page-1zyhQZj-.js` — regenerated production build output.
-- `dist/assets/result-entry-B8h1vahJ.js` — regenerated production build output.
-- `dist/assets/scan-line-x-ZtsCxZ.js` — regenerated production build output.
-- `dist/assets/setup-draft-Cxo39GXD.js` — regenerated production build output.
-- `dist/assets/setup-page-BbdRAGmv.js` — regenerated production build output.
-- `dist/assets/swords-DV5D4WxV.js` — regenerated production build output.
-- `dist/assets/tournament-page-BrABf9M0.js` — regenerated production build output.
-- `dist/assets/useMutation-SUv4coNH.js` — regenerated production build output.
-- `dist/assets/users-CAhnTzwP.js` — regenerated production build output.
+- `dist/assets/Home-DtpnC2mA.js` — regenerated production build output.
+- `dist/assets/auth-page-BvKnEpc3.js` — regenerated production build output.
+- `dist/assets/dashboard-page-KL6jHE4h.js` — regenerated production build output.
+- `dist/assets/index-CLKCju5F.css` — regenerated production build output.
+- `dist/assets/index-LnQZprvH.js` — regenerated production build output.
+- `dist/assets/match-editor-B7dOIo7w.js` — regenerated production build output.
+- `dist/assets/pagination-acvrK-Cw.js` — regenerated production build output.
+- `dist/assets/public-page-B6EL-KfQ.js` — regenerated production build output.
+- `dist/assets/result-entry-J-dc7ds5.js` — regenerated production build output.
+- `dist/assets/scan-line-ic6Fs0fS.js` — regenerated production build output.
+- `dist/assets/setup-draft-Cmd2Yg-J.js` — regenerated production build output.
+- `dist/assets/setup-page-pzyiaGak.js` — regenerated production build output.
+- `dist/assets/swords-CH4nl9xO.js` — regenerated production build output.
+- `dist/assets/tournament-page-BxfyiWPu.js` — regenerated production build output.
+- `dist/assets/useMutation-D6GzBCqI.js` — regenerated production build output.
+- `dist/assets/users-C60dfCnm.js` — regenerated production build output.
 - `dist/index.html` — regenerated production build output.
 - `tsconfig.tsbuildinfo` — updated incremental TypeScript build metadata.
 - `node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json` — updated Vitest result cache.
@@ -407,3 +452,307 @@ Earlier failing browser runs created diagnostics that Playwright removed when re
 - `test-results/organizer-layout-standings-0d1b7-tion-explanations-available-mobile/trace.zip` — generated by the compact-header red run and removed by the green run.
 
 Successive builds also replaced intermediate hashed outputs under `dist/assets/`; the list above records final retained outputs and replacements from the previous phase. The extraction-review removal phase deletes src/features/score-editing/extracted-stats.tsx as listed above; no other authored files were deleted or renamed.
+
+
+Earlier comparison/menu task generated artifacts (temporary paths use the canonical `/private/tmp` location):
+
+- `/private/tmp/arena-desktop-compact-menu-zoom.png` — verification screenshot.
+- `/private/tmp/arena-desktop-compact-menu.png` — verification screenshot.
+- `/private/tmp/arena-desktop-team-stats-comparison.png` — verification screenshot.
+- `/private/tmp/arena-desktop-team-stats-single.png` — verification screenshot.
+- `/private/tmp/arena-desktop-team-stats-zoom.png` — verification screenshot.
+- `/private/tmp/arena-frontend-rules-read.txt` — verification log or read-only verification inventory.
+- `/private/tmp/arena-mobile-compact-menu-zoom.png` — verification screenshot.
+- `/private/tmp/arena-mobile-compact-menu.png` — verification screenshot.
+- `/private/tmp/arena-mobile-team-stats-comparison.png` — verification screenshot.
+- `/private/tmp/arena-mobile-team-stats-single.png` — verification screenshot.
+- `/private/tmp/arena-mobile-team-stats-zoom.png` — verification screenshot.
+- `/private/tmp/arena-team-stats-browser-final.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-browser-green.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-browser.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-focused.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-format.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-intermediate-artifacts.json` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-lint.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-red.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-tooling.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-typecheck.log` — verification log or read-only verification inventory.
+- `/private/tmp/arena-team-stats-unit.log` — verification log or read-only verification inventory.
+
+Earlier comparison/menu task intermediate outputs and failed-browser diagnostics:
+
+- `dist/assets/Home-CDf1xED7.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/Home-DNEGF_mC.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/Home-d5hy2edB.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/auth-page-BAt7QlK4.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/auth-page-BCUqBnOU.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/auth-page-BuI16H5s.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/dashboard-page-Cleyyk5O.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/dashboard-page-CurpgX0E.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/dashboard-page-_ELlujGs.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/index-B8iZ8Nha.css` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/index-CRruEHub.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/index-DbtGoLmt.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/index-Dh2lpRPi.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/index-FYw-Ijyi.css` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/match-editor-BrDidtXa.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/match-editor-DwPhpMwS.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/match-editor-HCQV1vbG.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/pagination--wpkfzTV.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/pagination-CKu3KwyW.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/pagination-DmyW7apa.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/public-page-1zyhQZj-.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/public-page-DCwEBU5g.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/public-page-rb7-PUJb.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/result-entry-B8h1vahJ.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/result-entry-BVYvBXfT.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/result-entry-D-6GNkLO.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/scan-line-11bPl4Ih.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/scan-line-D54H52lV.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/scan-line-x-ZtsCxZ.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/setup-draft-B1_sx-qP.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/setup-draft-Cxo39GXD.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/setup-draft-DGOnhRiZ.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/setup-page-B6Hpcgar.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/setup-page-BbdRAGmv.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/setup-page-hZp4YIXB.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/swords-CA-BMeRi.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/swords-DV5D4WxV.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/swords-DhZLoR3w.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/tournament-page-BrABf9M0.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/tournament-page-CL6LtjdO.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/tournament-page-DjxkmGco.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/useMutation-BEqn6hpw.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/useMutation-CSD0YgD9.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/useMutation-SUv4coNH.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/users-BnOKwVn8.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/users-CAhnTzwP.js` — replaced/removed by the final production build or passing browser run.
+- `dist/assets/users-D2G2Mg94.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/03aa746b5d40ba22511aa41f9e07464a9e6095df.zip` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/13e8c3fbe3920d7d768505bf21497a3a30272c90.png` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/356147a645f00242547acfc5aa0d2c4c345465a1.png` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/5fc3336635cc89efbabfd378426be39f093f40ac.md` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/84b676be1f98ec25fb53095a7981a8d6926ceb19.md` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/87b1f8a2d556325030c5eff0c18ed1fcf7fc52c0.md` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/cbda0e6b67e0696efb6c4a8a7ba3519d6cd2f872.png` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/eebd41be89f43beeeaa41b76a57de3b952a7c8bf.zip` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/data/f1f5debe7ad8a316a3e367c3ee6b5635a2100071.zip` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/assets/codeMirrorModule-BEB2e8M3.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/assets/defaultSettingsView-D-g2vrvf.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/assets/urlMatch-L3liM589.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/codeMirrorModule.-QdMvsKi.css` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/codicon.DCmgc-ay.ttf` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/defaultSettingsView.C8BeHuxd.css` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/index.7-c5LSTW.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/index.B_TqY17P.css` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/index.html` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/manifest.webmanifest` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/playwright-logo.svg` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/snapshot.B_Jk1wbt.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/snapshot.html` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/sw.bundle.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/uiMode.CYwC_gH1.js` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/uiMode.CyMfwkXJ.css` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/uiMode.html` — replaced/removed by the final production build or passing browser run.
+- `playwright-report/trace/xtermModule.kHJ-D0s7.css` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-compact-menu-ro-1ba88-blic-link-opens-another-tab-desktop/error-context.md` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-compact-menu-ro-1ba88-blic-link-opens-another-tab-desktop/test-failed-1.png` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-compact-menu-ro-1ba88-blic-link-opens-another-tab-desktop/trace.zip` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-compact-menu-ro-1ba88-blic-link-opens-another-tab-mobile/error-context.md` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-compact-menu-ro-1ba88-blic-link-opens-another-tab-mobile/test-failed-1.png` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-compact-menu-ro-1ba88-blic-link-opens-another-tab-mobile/trace.zip` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-mobile/error-context.md` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-mobile/test-failed-1.png` — replaced/removed by the final production build or passing browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-mobile/trace.zip` — replaced/removed by the final production build or passing browser run.
+
+
+## Compact comparisons/adaptive tabs artifact inventory
+
+The authored inventory is recorded in the current-change section above. This phase regenerated the production files listed in Generated files, tsconfig.tsbuildinfo, the Vitest result cache, playwright-report/index.html and test-results/.last-run.json. Existing screenshot paths listed earlier were refreshed by organizer, standings, scorecard and comparison regressions. Playwright replaced temporary per-run diagnostic attachments under playwright-report/data/ and test-results/; captured file paths removed during these runs are listed below. Vite also creates and removes temporary bundled configuration files under node_modules/.vite-temp/ while running checks. No dependency prebundles, settings or environment files were edited.
+
+New verification logs, inventories and screenshots in this phase:
+
+- `/private/tmp/arena-adaptive-tabs-focused.log` — verification log or artifact inventory.
+- `/private/tmp/arena-adaptive-tabs-red.log` — verification log or artifact inventory.
+- `/private/tmp/arena-desktop-adaptive-tabs-zoom.png` — new screenshot.
+- `/private/tmp/arena-desktop-adaptive-tabs.png` — new screenshot.
+- `/private/tmp/arena-desktop-compact-comparison.png` — new screenshot.
+- `/private/tmp/arena-mobile-adaptive-tabs-zoom.png` — new screenshot.
+- `/private/tmp/arena-mobile-adaptive-tabs.png` — new screenshot.
+- `/private/tmp/arena-mobile-compact-baseline.json` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-browser-complete.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-browser-diagnostic.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-browser-final.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-browser-green.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-browser.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-comparison.png` — new screenshot.
+- `/private/tmp/arena-mobile-compact-fixtures.png` — new screenshot.
+- `/private/tmp/arena-mobile-compact-focused.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-format.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-intermediate-artifacts.json` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-lint.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-menu-zoom.png` — new screenshot.
+- `/private/tmp/arena-mobile-compact-menu.png` — new screenshot.
+- `/private/tmp/arena-mobile-compact-red.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-skip-link-red.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-tooling.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-typecheck.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-unit.log` — verification log or artifact inventory.
+- `/private/tmp/arena-mobile-compact-zoom.png` — new screenshot.
+
+Captured build/report files replaced or removed in this phase:
+
+- `dist/assets/Home-BEH-x_bm.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/Home-Cb31SCX9.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/Home-cHUxPbeW.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/Home-yVVDnUJK.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/auth-page-BT5zOkPf.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/auth-page-B_p4vX76.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/auth-page-CrQ6QmhS.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/auth-page-DIJcQYaN.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/dashboard-page-B4ZQRh_S.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/dashboard-page-BLr0YvBq.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/dashboard-page-Bnu4Dz2a.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/dashboard-page-DMLv98Eb.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-ADEWypIP.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-BCW3gzRq.css` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-BcXqRGEp.css` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-DfoKJBfN.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-KAY5U31Q.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-WIiaCR8B.css` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-mKHJIKvF.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/index-v4vGpcfk.css` — replaced or removed by a later production build/browser run.
+- `dist/assets/match-editor-Bl_A4yXp.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/match-editor-C7DNyDqL.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/match-editor-C_YwufCE.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/match-editor-ok0jwd_b.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/pagination-BySmAwBn.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/pagination-CA3blnb4.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/pagination-CApGSrVt.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/pagination-COd_IP0k.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/public-page-Bj9Edg2m.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/public-page-DjdZ3ltH.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/public-page-Dzj0nEzZ.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/public-page-Pxydg8Pm.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/result-entry-BKrlubch.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/result-entry-BME8apUE.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/result-entry-CvsvHiJf.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/result-entry-z7PXoVFQ.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/scan-line-C3ffWMmh.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/scan-line-CbZZPWYv.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/scan-line-CjZbmFX9.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/scan-line-nXxdHQWk.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-draft-B_gbcWId.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-draft-DMwr1Xsa.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-draft-DnYANwcA.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-draft-hfH2T2rV.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-page-7I8Qo5rJ.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-page-BO_MH1f-.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-page-Cvxo2M5B.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/setup-page-DI3AMfTT.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/swords-B9E6JKeR.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/swords-BWFI05IZ.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/swords-C6NYZ0Zg.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/swords-wUbuRKTS.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/tournament-page-B9n_HiOq.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/tournament-page-B_OWKZOX.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/tournament-page-C-3IwjVu.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/tournament-page-hQ3b-q4C.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/useMutation-BQdRPsqT.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/useMutation-BjFeUXcv.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/useMutation-Cp5nuW2n.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/useMutation-CshCkPgZ.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/users-BWxc-eFg.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/users-CneLN8I6.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/users-DwFmeHmB.js` — replaced or removed by a later production build/browser run.
+- `dist/assets/users-LSpZIzhf.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/0e02fb52252dfc816387c8828618f605135eace8.md` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/2a96d778c34bdd34b8d39aae9e6ddd2161ec08a2.png` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/2b8e1f1f7808000b473f52f80f181a1481f78740.zip` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/2efc0c38d5869a3be98998b4785eb0ae826d6125.md` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/44e5626b2ff5ae507c3dccf8bb138f7b9e1db522.png` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/47b70dc151e9b7343325b14305964526c24ca333.png` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/4bd36cd60be39a9e145653960e102b4fe5b9a48c.md` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/53645de2b54874bf830671808bcb4c66a4244d74.zip` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/5449fd7ffbcea866adb24fe632a7b1e04679656b.md` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/66258a436e49e2e20bac48651e19c35020ce5883.zip` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/92a373bf1e89393a2624b73682717c327e4d9d5a.md` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/948c8a9c6b49b19683df4d9f7847c46494bd5933.md` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/9daa45e6fb305c0d5cab188ccaccfc104b5548b1.zip` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/9f3e7b367d6ceb8775965cbd92e6755a6dfc0baf.zip` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/ab263c4524c74f8a3e84bb19bf32cffac11ae833.zip` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/aef242a624f2582964641de84cb5dc9ea6cf14a3.png` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/b61451a974de79d2e1a6e3ab9ec374475775bb7a.png` — replaced or removed by a later production build/browser run.
+- `playwright-report/data/e52c06147369fc39d1d3399c1c65ba2d2db64ded.png` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/assets/codeMirrorModule-BEB2e8M3.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/assets/defaultSettingsView-D-g2vrvf.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/assets/urlMatch-L3liM589.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/codeMirrorModule.-QdMvsKi.css` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/codicon.DCmgc-ay.ttf` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/defaultSettingsView.C8BeHuxd.css` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/index.7-c5LSTW.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/index.B_TqY17P.css` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/index.html` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/manifest.webmanifest` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/playwright-logo.svg` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/snapshot.B_Jk1wbt.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/snapshot.html` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/sw.bundle.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/uiMode.CYwC_gH1.js` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/uiMode.CyMfwkXJ.css` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/uiMode.html` — replaced or removed by a later production build/browser run.
+- `playwright-report/trace/xtermModule.kHJ-D0s7.css` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-adaptive-naviga-c9586-eps-active-sections-visible-desktop/error-context.md` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-adaptive-naviga-c9586-eps-active-sections-visible-desktop/test-failed-1.png` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-adaptive-naviga-c9586-eps-active-sections-visible-desktop/trace.zip` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-adaptive-naviga-c9586-eps-active-sections-visible-mobile/error-context.md` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-adaptive-naviga-c9586-eps-active-sections-visible-mobile/test-failed-1.png` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-adaptive-naviga-c9586-eps-active-sections-visible-mobile/trace.zip` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-desktop/error-context.md` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-desktop/test-failed-1.png` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-desktop/trace.zip` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-mobile/error-context.md` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-mobile/test-failed-1.png` — replaced or removed by a later production build/browser run.
+- `test-results/team-stats-team-selections-7c0da-cally-and-wrap-at-text-zoom-mobile/trace.zip` — replaced or removed by a later production build/browser run.
+## Tooltip placement follow-up
+
+The team-stats information tooltip now sizes itself from its full text before the viewport positioning calculation. This prevents its width and left edge from shifting after it opens. Added a desktop/mobile browser regression that checks for movement and viewport clipping. The regression failed first on both viewports with a 12px shift; after the CSS change, both cases pass. Typecheck, lint, and formatting checks pass. The live 362px-wide stats view was inspected after the fix and the tooltip remained fully visible.
+
+Files changed for this follow-up:
+
+- `e2e/team-stats.spec.ts` — added the tooltip stability and viewport containment browser regression.
+- `src/styles.css` — set tooltip width to `max-content` before applying the existing maximum width.
+- `docs/ORGANIZER_UX.md` — recorded the behavior change and verification.
+
+Generated artifacts from verification:
+
+- `/private/tmp/arena-stats-tooltip-fixed.png` — live view after the fix.
+- `test-results/.last-run.json` — updated Playwright run metadata.
+- `playwright-report/index.html` — updated Playwright report.
+
+The other frontend changes present in this checkout predate this tooltip follow-up and were left untouched. No application data, backend files, or persistent external state changed.
+
+## Team stats table layout follow-up
+
+The team stats table now leads with Possession, Shots (on target), Shot accuracy, Passes (successful), and Pass accuracy. Accuracy is calculated in the frontend from the existing aggregate values, rounded to one decimal place with trailing zeroes omitted; missing values and zero attempts show a dash, while a zero numerator with attempts shows 0%. Paired values and rates use the lower recorded-match coverage of their source stats and expose both source coverages to assistive technology. Show all stats reveals Free kicks, Corner kicks, Crosses, Offsides, Fouls, Interceptions, Tackles, and Saves; Show key stats returns to the five-row view.
+
+RED: `npm test -- src/features/tournament-management/team-stats-panel.test.tsx` failed on the old separate rows before the implementation. GREEN: all 10 focused component tests pass, and all 111 frontend unit/component tests pass. The 14 desktop/mobile `e2e/team-stats.spec.ts` cases pass, including the new expand/collapse behavior. Typecheck, lint, formatting, and production build pass. The table was inspected in desktop and mobile screenshots and in the open public stats page; expanding the live table showed all 13 rows in the planned order.
+
+Files changed for this follow-up:
+
+- `src/features/tournament-management/team-stats-panel.tsx` — combined source stats, calculated accuracy rows, lower-coverage summaries, and the accessible table disclosure.
+- `src/features/tournament-management/team-stats-panel.test.tsx` — covered paired values, rates, zero/missing cases, coverage, ordering, and expansion.
+- `e2e/team-stats.spec.ts` — verified the default rows and disclosure on desktop/mobile.
+- `src/styles.css` — gave the disclosure a clear right alignment and 44px minimum height.
+- `docs/ORGANIZER_UX.md` — documented the behavior and checks.
+
+Generated artifacts updated during verification:
+
+- `dist/_routes.json`, `dist/index.html`.
+- `dist/assets/Home-B4MAm1Bs.js`, `dist/assets/auth-page-DhRXBbPG.js`, `dist/assets/dashboard-page-CGSV5iw4.js`, `dist/assets/index-C1jDwdk1.js`, `dist/assets/index-DLKatkSD.css`, `dist/assets/match-editor-ON3IR9XZ.js`, `dist/assets/pagination-DSvXL3kh.js`, `dist/assets/public-page-Dry5rNs3.js`, `dist/assets/result-entry-7xZ9pcvY.js`, `dist/assets/scan-line-D2u2NO_M.js`, `dist/assets/setup-draft-DdftpVMV.js`, `dist/assets/setup-page-C3wQOiGa.js`, `dist/assets/swords-DM4M0gsm.js`, `dist/assets/tournament-page-D3KIaHJS.js`, `dist/assets/useMutation-D8VvELAb.js`, and `dist/assets/users-BUgXgDR4.js`.
+- `test-results/.last-run.json` and `playwright-report/index.html` — Playwright run metadata and report.
+- The intermediate `test-results/team-stats-team-stats-star-8a470--to-the-complete-stat-order-desktop/` and `...-mobile/` failure screenshots, traces, and error contexts were removed by the later successful browser run.
+- `/private/tmp/arena-desktop-team-stats-single.png`, `/private/tmp/arena-desktop-team-stats-comparison.png`, `/private/tmp/arena-desktop-team-stats-zoom.png`, `/private/tmp/arena-mobile-team-stats-single.png`, `/private/tmp/arena-mobile-team-stats-comparison.png`, and `/private/tmp/arena-mobile-team-stats-zoom.png` — isolated browser screenshots.
+- `/private/tmp/arena-public-team-stats-expanded.png` and `/private/tmp/arena-public-team-stats-full.png` — live public table screenshots after inspecting expansion and the compact default view.
+
+The tournament-navigation, menu, tooltip, and other earlier uncommitted work in this checkout predates this follow-up and was preserved. No backend/API contracts, dependencies, database records, or tournament data changed. The isolated browser preview server was stopped after the checks.

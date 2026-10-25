@@ -1,3 +1,4 @@
+import { TeamStatsPanel } from "./team-stats-panel";
 import { TournamentHeader } from "./tournament-header";
 import { TournamentNavigation } from "./tournament-navigation";
 import { StandingsTable } from "./standings-table";
@@ -16,6 +17,9 @@ import type {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
+  ArrowUpRight,
+  Archive,
+  ChartNoAxesCombined,
   Check,
   History,
   Pencil,
@@ -506,7 +510,8 @@ export function TournamentPage({
                     disabled={pending}
                     onClick={enableStats}
                   >
-                    Enable match stats
+                    <ChartNoAxesCombined size={18} aria-hidden="true" /> Enable
+                    match stats
                   </button>
                 )}
                 {admin && t.statsEnabled && (
@@ -516,15 +521,21 @@ export function TournamentPage({
                     disabled={pending}
                     onClick={archiveStats}
                   >
-                    Archive stats
+                    <Archive size={18} aria-hidden="true" /> Archive stats
                   </button>
                 )}
               </>
             )}
             <ShareButton code={t.publicId} />
             {admin && (
-              <Link className="text-button" to={`/t/${t.publicId}`}>
-                <ArrowUpRightIcon /> Public page
+              <Link
+                className="text-button"
+                to={`/t/${t.publicId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ArrowUpRight size={18} aria-hidden="true" /> Public page
+                <span className="sr-only"> (opens in a new tab)</span>
               </Link>
             )}
           </>
@@ -594,76 +605,12 @@ export function TournamentPage({
           ) : (
             <div>{renderStandings()}</div>
           ))}
-        {tab === "stats" && t.statsEnabled && (
-          <section className="panel team-stats-panel" aria-label="Team stats">
-            {statsQuery.isPending ? (
-              <p role="status">Loading team stats…</p>
-            ) : statsQuery.error ? (
-              <p role="alert">
-                Could not load team stats. {errorMessage(statsQuery.error)}
-              </p>
-            ) : !statsQuery.data?.teams.some(
-                (team: TeamStats["teams"][number]): boolean =>
-                  team.stats.some(
-                    (
-                      stat: TeamStats["teams"][number]["stats"][number],
-                    ): boolean => stat.recordedMatches > 0,
-                  ),
-              ) ? (
-              <p>
-                No match stats have been recorded yet. Add optional stats when
-                saving a match result.
-              </p>
-            ) : (
-              <div
-                className="table-scroll"
-                tabIndex={0}
-                role="region"
-                aria-label="Tournament team stats"
-              >
-                <table>
-                  <thead>
-                    <tr>
-                      <th scope="col">Team</th>
-                      {statsQuery.data.teams[0]?.stats.map(
-                        (
-                          stat: TeamStats["teams"][number]["stats"][number],
-                        ): React.JSX.Element => (
-                          <th scope="col" key={stat.key}>
-                            {stat.label}
-                          </th>
-                        ),
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {statsQuery.data.teams.map(
-                      (team: TeamStats["teams"][number]): React.JSX.Element => (
-                        <tr key={team.entrantId}>
-                          <th scope="row">{team.name}</th>
-                          {team.stats.map(
-                            (
-                              stat: TeamStats["teams"][number]["stats"][number],
-                            ): React.JSX.Element => (
-                              <td key={stat.key}>
-                                {stat.value === null
-                                  ? "—"
-                                  : `${stat.value}${stat.unit === "percent" ? "%" : ""}`}
-                                <small className="stat-coverage">
-                                  {stat.recordedMatches}/{stat.playedMatches}{" "}
-                                  matches
-                                </small>
-                              </td>
-                            ),
-                          )}
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+        {t.statsEnabled && (
+          <TeamStatsPanel
+            key={`${admin ? ownerId : "public"}:${t.id}`}
+            query={statsQuery}
+            active={tab === "stats"}
+          />
         )}
         {tab === "fixtures" && (
           <section className="fixtures-section">
@@ -1116,20 +1063,6 @@ function PlusIcon(): React.JSX.Element {
       strokeWidth="1.5"
     >
       <path d="M8 2v12M2 8h12" />
-    </svg>
-  );
-}
-function ArrowUpRightIcon(): React.JSX.Element {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 16 16"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      fill="none"
-    >
-      <path d="M3 13 13 3M4 3h9v9" />
     </svg>
   );
 }

@@ -237,7 +237,9 @@ test("tournament navigation stays reachable and secondary sections work on phone
   if (info.project.name === "mobile") {
     const more = page.getByRole("button", { name: /More sections/ });
     await more.click();
-    await page.getByRole("tab", { name: "Team stats", exact: true }).click();
+    await page
+      .getByRole("menuitemradio", { name: "Team stats", exact: true })
+      .click();
     await expect(
       page.getByRole("tabpanel", { name: "Team stats" }),
     ).toBeVisible();
