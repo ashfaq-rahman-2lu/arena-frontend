@@ -1,5 +1,6 @@
 import { TournamentLookup } from "../public-viewing/tournament-lookup";
 import { RefreshStatus } from "../public-viewing/refresh-status";
+import { FixtureFilters } from "./fixture-filters";
 import { FixtureProgress } from "./fixture-progress";
 import { QualificationProgress } from "./qualification-progress";
 import { teamFixturesSearch } from "./fixture-navigation";
@@ -680,77 +681,68 @@ export function TournamentPage({
         )}
         {tab === "fixtures" && (
           <section className="fixtures-section">
-            <div className="list-toolbar">
-              <div className="fixture-filters">
-                <select
-                  aria-label="Filter by team"
-                  value={entrantFilter}
-                  onChange={(
-                    e: React.ChangeEvent<HTMLSelectElement, HTMLSelectElement>,
-                  ): void => setEntrantFilter(e.target.value)}
-                >
-                  <option value="">All teams</option>
-                  {t.entrants.map((e: Entrant): React.JSX.Element => (
-                    <option value={e.id} key={e.id}>
-                      {e.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label="Filter fixture status"
-                  value={statusFilter}
-                  onChange={(
-                    e: React.ChangeEvent<HTMLSelectElement, HTMLSelectElement>,
-                  ): void => setStatusFilter(e.target.value)}
-                >
-                  <option value="ALL">All matches</option>
-                  <option value="PENDING">To play</option>
-                  <option value="PLAYED">Played</option>
-                </select>
-                {t.format === "WORLD_CUP" && (
-                  <select
-                    aria-label="Filter stage"
-                    value={stageFilter}
-                    onChange={(
-                      e: React.ChangeEvent<
-                        HTMLSelectElement,
-                        HTMLSelectElement
-                      >,
-                    ): void => setStageFilter(e.target.value)}
-                  >
-                    <option value="ALL">All stages</option>
-                    <option value="GROUP">Groups</option>
-                    <option value="KNOCKOUT">Knockout</option>
-                  </select>
-                )}
-              </div>
-              <FixtureProgress tournament={t} teamId={entrantFilter} />
-            </div>
-            {matchList.length ? (
-              <FixtureRounds
-                key={`${entrantFilter}:${statusFilter}:${stageFilter}`}
-                matches={matchList}
-                selectedRound={params.get("round") ?? "ALL"}
-                onRoundChange={(round: string): void =>
-                  setParam("round", round)
-                }
-                renderMatch={fixtureRow}
-              />
-            ) : (
-              <div className="empty">
-                <Swords size={32} />
-                <h3>
-                  {t.status === "DRAFT"
-                    ? "Fixtures arrive when you start."
-                    : "No matches in this view."}
-                </h3>
-                <p>
-                  {t.status === "DRAFT"
-                    ? "An admin can review the generated fixtures before starting."
-                    : "Try another filter."}
-                </p>
-              </div>
-            )}
+            <FixtureRounds
+              filterKey={`${entrantFilter}:${statusFilter}:${stageFilter}`}
+              matches={matchList}
+              selectedRound={params.get("round") ?? "ALL"}
+              onRoundChange={(round: string): void => setParam("round", round)}
+              renderMatch={fixtureRow}
+              filters={
+                <FixtureFilters
+                  tournament={t}
+                  team={entrantFilter}
+                  status={statusFilter}
+                  stage={stageFilter}
+                  onTeamChange={setEntrantFilter}
+                  onStatusChange={setStatusFilter}
+                  onStageChange={setStageFilter}
+                />
+              }
+              summary={
+                <>
+                  <FixtureProgress tournament={t} teamId={entrantFilter} />
+                  {(entrantFilter ||
+                    statusFilter !== "ALL" ||
+                    stageFilter !== "ALL" ||
+                    (params.get("round") ?? "ALL") !== "ALL") && (
+                    <button
+                      type="button"
+                      className="text-button fixture-clear"
+                      onClick={(): void => {
+                        setParams((old: URLSearchParams): URLSearchParams => {
+                          const next = new URLSearchParams(old);
+                          for (const name of [
+                            "team",
+                            "status",
+                            "stage",
+                            "round",
+                          ])
+                            next.delete(name);
+                          return next;
+                        });
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </>
+              }
+              emptyContent={
+                <div className="empty">
+                  <Swords size={32} />
+                  <h3>
+                    {t.status === "DRAFT"
+                      ? "Fixtures arrive when you start."
+                      : "No matches match these filters"}
+                  </h3>
+                  <p>
+                    {t.status === "DRAFT"
+                      ? "An admin can review the generated fixtures before starting."
+                      : "Try another filter or clear filters to see all matches."}
+                  </p>
+                </div>
+              }
+            />
           </section>
         )}
         {tab === "knockout" &&

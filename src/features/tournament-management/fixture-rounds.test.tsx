@@ -70,3 +70,11 @@ test("an empty fixture view has no expansion actions or round headings", (): voi
   ).not.toBeInTheDocument();
   expect(screen.queryByRole("heading")).not.toBeInTheDocument();
 });
+
+test("round filter has an accessible name without a standalone visible label", (): void => {
+  render(<Rounds />);
+  expect(
+    screen.getByRole("combobox", { name: "Filter by round" }),
+  ).toBeVisible();
+  expect(screen.queryByText("Round", { exact: true })).not.toBeInTheDocument();
+});

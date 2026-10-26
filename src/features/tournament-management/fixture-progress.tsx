@@ -25,7 +25,7 @@ export function FixtureProgress({
   return (
     <div className="fixtures-progress">
       {team && (
-        <p>{`${team.name}: ${played(teamMatches)}/${teamMatches.length} matches played`}</p>
+        <p>{`${played(teamMatches)} of ${teamMatches.length} matches played`}</p>
       )}
     </div>
   );
