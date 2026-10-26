@@ -615,10 +615,10 @@ test("changing a fixture filter resets expanded rounds without changing global p
   expect(
     screen.getByRole("button", { name: /League · Round 1/ }),
   ).toHaveAttribute("aria-expanded", "true");
-  await userEvent.selectOptions(
+  await userEvent.click(
     screen.getByRole("combobox", { name: "Filter by team" }),
-    "home",
   );
+  await userEvent.click(screen.getByRole("option", { name: "Alpha" }));
   expect(
     screen.getByRole("button", { name: /League · Round 1/ }),
   ).toHaveAttribute("aria-expanded", "false");
@@ -630,6 +630,34 @@ test("changing a fixture filter resets expanded rounds without changing global p
   ).toHaveAttribute("aria-expanded", "false");
   expect(
     screen.queryByText(/Tournament:.*matches played/),
+  ).not.toBeInTheDocument();
+  cache.clear();
+});
+
+test("empty filtered fixtures retain all controls and reset only filter query parameters", async (): Promise<void> => {
+  const cache = showOrganizerPage(
+    tournament,
+    "/manage/tournament-id?tab=fixtures&team=home&status=PENDING&stage=ALL&round=LEAGUE:1&historyPage=3",
+  );
+  expect(
+    await screen.findByText("No matches match these filters"),
+  ).toBeVisible();
+  expect(
+    screen.getByRole("combobox", { name: "Filter by round" }),
+  ).toBeVisible();
+  expect(screen.getByText("1 of 1 matches played")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+  expect(screen.getByRole("combobox", { name: "Filter by team" })).toHaveValue(
+    "All teams",
+  );
+  expect(
+    screen.getByRole("combobox", { name: "Filter fixture status" }),
+  ).toHaveValue("ALL");
+  expect(
+    screen.queryByText("No matches match these filters"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Clear filters" }),
   ).not.toBeInTheDocument();
   cache.clear();
 });

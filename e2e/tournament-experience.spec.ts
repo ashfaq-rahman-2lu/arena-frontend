@@ -70,9 +70,9 @@ test("spectators recover an unknown ID with a full link and follow a team's fixt
   await page.getByRole("link", { name: "View fixtures for Alpha" }).click();
   await expect(
     page.getByRole("combobox", { name: "Filter by team" }),
-  ).toHaveValue("home");
+  ).toHaveValue("Alpha");
   await expect(
-    page.getByText("Alpha: 1/1 matches played", { exact: true }),
+    page.getByText("1 of 1 matches played", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText(/Tournament:.*matches played/)).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page })

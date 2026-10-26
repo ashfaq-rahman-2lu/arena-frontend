@@ -5,7 +5,7 @@ import { FixtureProgress } from "./fixture-progress";
 
 test("shows selected-team progress without duplicating tournament totals", (): void => {
   render(<FixtureProgress tournament={tournament} teamId="home" />);
-  expect(screen.getByText("Alpha: 1/1 matches played")).toBeVisible();
+  expect(screen.getByText("1 of 1 matches played")).toBeVisible();
   expect(screen.queryByText(/Tournament:/)).not.toBeInTheDocument();
 });
 test("renders no extra progress row without a valid selected team", (): void => {

@@ -141,7 +141,7 @@ test.each(["teams", "standings"])(
     expect(screen.getByRole("tabpanel", { name: "Fixtures" })).toHaveFocus();
     expect(
       screen.getByRole("combobox", { name: "Filter by team" }),
-    ).toHaveValue("home");
+    ).toHaveValue("Alpha");
     expect(
       screen.getByRole("combobox", { name: "Filter fixture status" }),
     ).toHaveValue("ALL");
@@ -168,7 +168,7 @@ test("team progress excludes duplicate tournament totals and respects team selec
     },
     "fixtures&team=home",
   );
-  expect(await screen.findByText("Alpha: 1/2 matches played")).toBeVisible();
+  expect(await screen.findByText("1 of 2 matches played")).toBeVisible();
   expect(
     screen.queryByText(/Tournament:.*matches played/),
   ).not.toBeInTheDocument();
@@ -176,7 +176,7 @@ test("team progress excludes duplicate tournament totals and respects team selec
     screen.getByRole("combobox", { name: "Filter fixture status" }),
     "PENDING",
   );
-  expect(screen.getByText("Alpha: 1/2 matches played")).toBeVisible();
+  expect(screen.getByText("1 of 2 matches played")).toBeVisible();
   cache.clear();
 });
 

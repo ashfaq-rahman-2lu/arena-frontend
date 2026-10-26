@@ -1,5 +1,11 @@
 import { ChevronDown } from "lucide-react";
-import { useId, useState, type ChangeEvent, type ReactElement } from "react";
+import {
+  useId,
+  useState,
+  type ChangeEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import type { Match } from "../../shared/api/arena-api";
 
 interface FixtureRound {
@@ -10,6 +16,10 @@ interface FixtureRound {
   matches: Match[];
 }
 interface FixtureRoundsProps {
+  filterKey?: string;
+  filters?: ReactNode;
+  summary?: ReactNode;
+  emptyContent?: ReactNode;
   matches: Match[];
   selectedRound: string;
   onRoundChange: (round: string) => void;
@@ -57,11 +67,19 @@ function RoundSection({
   );
 }
 interface RoundListProps {
+  resetKey: string;
+  toolbar: ReactNode;
+  summary?: ReactNode;
+  emptyContent?: ReactNode;
   rounds: FixtureRound[];
   initialRound?: string;
   renderMatch: (match: Match) => ReactElement;
 }
 function RoundList({
+  resetKey,
+  toolbar,
+  summary,
+  emptyContent,
   rounds,
   initialRound,
   renderMatch,
@@ -69,28 +87,39 @@ function RoundList({
   const [expanded, setExpanded] = useState<Set<string>>(
     new Set(initialRound ? [initialRound] : []),
   );
+  const [previousKey, setPreviousKey] = useState<string>(resetKey);
+  // Filter changes reset expansion without remounting the focused controls.
+  if (previousKey !== resetKey) {
+    setPreviousKey(resetKey);
+    setExpanded(new Set(initialRound ? [initialRound] : []));
+  }
   const allOpen = rounds.every((round: FixtureRound): boolean =>
     expanded.has(round.key),
   );
   return (
     <>
-      {rounds.length > 1 && (
-        <button
-          className="button secondary small round-expand-all"
-          type="button"
-          onClick={(): void =>
-            setExpanded(
-              new Set(
-                allOpen
-                  ? []
-                  : rounds.map((round: FixtureRound): string => round.key),
-              ),
-            )
-          }
-        >
-          {allOpen ? "Collapse all" : "Expand all"}
-        </button>
-      )}
+      <div className="fixtures-toolbar">
+        <div className="fixture-filters">{toolbar}</div>
+        {rounds.length > 1 && (
+          <button
+            className="button secondary small round-expand-all"
+            type="button"
+            onClick={(): void =>
+              setExpanded(
+                new Set(
+                  allOpen
+                    ? []
+                    : rounds.map((round: FixtureRound): string => round.key),
+                ),
+              )
+            }
+          >
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
+        )}
+      </div>
+      <div className="fixtures-filter-summary">{summary}</div>
+      {!rounds.length && emptyContent}
       {rounds.map((round: FixtureRound): ReactElement => (
         <RoundSection
           key={round.key}
@@ -111,6 +140,10 @@ function RoundList({
   );
 }
 export function FixtureRounds({
+  filterKey = "",
+  filters,
+  summary,
+  emptyContent,
   matches,
   selectedRound,
   onRoundChange,
@@ -156,27 +189,29 @@ export function FixtureRounds({
     ) ?? visible[0];
   return (
     <div className="fixture-rounds">
-      <div className="round-navigation">
-        <label>
-          Round
-          <select
-            aria-label="Filter by round"
-            value={selection}
-            onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-              onRoundChange(event.currentTarget.value)
-            }
-          >
-            <option value="ALL">All rounds</option>
-            {rounds.map((round: FixtureRound): ReactElement => (
-              <option key={round.key} value={round.key}>
-                {round.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
       <RoundList
-        key={selection}
+        resetKey={JSON.stringify([selection, filterKey])}
+        toolbar={
+          <>
+            {filters}{" "}
+            <select
+              aria-label="Filter by round"
+              value={selection}
+              onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                onRoundChange(event.currentTarget.value)
+              }
+            >
+              <option value="ALL">All rounds</option>
+              {rounds.map((round: FixtureRound): ReactElement => (
+                <option key={round.key} value={round.key}>
+                  {round.label}
+                </option>
+              ))}
+            </select>
+          </>
+        }
+        summary={summary}
+        emptyContent={emptyContent}
         rounds={visible}
         initialRound={firstUnfinished?.key}
         renderMatch={renderMatch}
