@@ -202,14 +202,12 @@ export function AuthPage(): React.JSX.Element {
           {["login", "register", "reset"].includes(mode) && (
             <Field
               label="Password"
-              hint={
-                mode === "login" ? undefined : "Use at least 10 characters."
-              }
+              hint={mode === "login" ? undefined : "Use at least 8 characters."}
             >
               <input
                 type="password"
                 required
-                minLength={10}
+                minLength={8}
                 maxLength={128}
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
@@ -232,7 +230,7 @@ export function AuthPage(): React.JSX.Element {
               <input
                 type="password"
                 required
-                minLength={10}
+                minLength={8}
                 maxLength={128}
                 autoComplete="new-password"
                 value={confirmPassword}

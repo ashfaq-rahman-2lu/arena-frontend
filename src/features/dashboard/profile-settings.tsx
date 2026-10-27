@@ -129,7 +129,7 @@ function ProfileSettingsForm({
               <input
                 type="password"
                 autoComplete="current-password"
-                minLength={10}
+                minLength={8}
                 maxLength={128}
                 required
                 value={emailCurrentPassword}
@@ -191,7 +191,7 @@ function ProfileSettingsForm({
               <input
                 type="password"
                 autoComplete="current-password"
-                minLength={10}
+                minLength={8}
                 maxLength={128}
                 required
                 value={currentPassword}
@@ -204,7 +204,7 @@ function ProfileSettingsForm({
               <input
                 type="password"
                 autoComplete="new-password"
-                minLength={10}
+                minLength={8}
                 maxLength={128}
                 required
                 value={password}
@@ -217,7 +217,7 @@ function ProfileSettingsForm({
               <input
                 type="password"
                 autoComplete="new-password"
-                minLength={10}
+                minLength={8}
                 maxLength={128}
                 required
                 value={confirmPassword}
