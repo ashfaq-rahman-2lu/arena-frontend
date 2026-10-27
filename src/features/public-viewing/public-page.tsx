@@ -64,6 +64,7 @@ export function PublicPage(): ReactElement {
                 className="button secondary"
                 to={`/auth/login?returnTo=${encodeURIComponent(`/t/${publicId}`)}`}
               >
+                <Bookmark size={17} aria-hidden="true" />
                 Sign in to follow
               </Link>
             )
