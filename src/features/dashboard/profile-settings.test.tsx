@@ -42,6 +42,19 @@ async function emailDraft(): Promise<HTMLInputElement> {
   await userEvent.type(input, "CurrentPassword2026!");
   return input;
 }
+test("account settings permit eight-character current, new, and confirmation passwords", (): void => {
+  const cache = mount();
+  const fields = [
+    ...screen.getAllByLabelText("Current password"),
+    screen.getByLabelText("New password"),
+    screen.getByLabelText("Confirm new password"),
+  ];
+  for (const field of fields) {
+    expect(field).toHaveAttribute("minlength", "8");
+    expect(field).toHaveAttribute("maxlength", "128");
+  }
+  cache.clear();
+});
 test("email success clears only its password and retains email, feedback, and separate password drafts", async (): Promise<void> => {
   vi.spyOn(api, "requestEmailChange").mockResolvedValue({
     status: "verification_sent",
