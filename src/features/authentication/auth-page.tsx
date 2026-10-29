@@ -15,6 +15,7 @@ import {
   safeReturnUrl,
 } from "../../shared/api/arena-api";
 import { Field, useSession } from "../../shared/ui/primitives";
+import { PasswordInput } from "../../shared/ui/password-input";
 export function AuthPage(): React.JSX.Element {
   const { mode = "login" } = useParams();
   const [params] = useSearchParams();
@@ -204,8 +205,7 @@ export function AuthPage(): React.JSX.Element {
               label="Password"
               hint={mode === "login" ? undefined : "Use at least 8 characters."}
             >
-              <input
-                type="password"
+              <PasswordInput
                 required
                 minLength={8}
                 maxLength={128}
@@ -227,8 +227,8 @@ export function AuthPage(): React.JSX.Element {
           )}
           {mode === "reset" && (
             <Field label="Confirm new password">
-              <input
-                type="password"
+              <PasswordInput
+                visibilityLabel="password confirmation"
                 required
                 minLength={8}
                 maxLength={128}

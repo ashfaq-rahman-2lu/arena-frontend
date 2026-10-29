@@ -42,6 +42,67 @@ async function emailDraft(): Promise<HTMLInputElement> {
   await userEvent.type(input, "CurrentPassword2026!");
   return input;
 }
+interface PasswordVisibilityCase {
+  label: string;
+  occurrence: number;
+  toggleLabel: string;
+}
+test.each<PasswordVisibilityCase>([
+  {
+    label: "Current password",
+    occurrence: 0,
+    toggleLabel: "current password for email change",
+  },
+  { label: "Current password", occurrence: 1, toggleLabel: "current password" },
+  { label: "New password", occurrence: 0, toggleLabel: "new password" },
+  {
+    label: "Confirm new password",
+    occurrence: 0,
+    toggleLabel: "password confirmation",
+  },
+])(
+  "$toggleLabel can be shown independently without submitting either form",
+  async ({
+    label,
+    occurrence,
+    toggleLabel,
+  }: PasswordVisibilityCase): Promise<void> => {
+    const user = userEvent.setup();
+    const send = vi.spyOn(api, "requestEmailChange");
+    const change = vi.spyOn(api, "changePassword");
+    const cache = mount();
+    await emailDraft();
+    const fields: HTMLElement[] = [
+      ...screen.getAllByLabelText("Current password", { exact: true }),
+      screen.getByLabelText("New password", { exact: true }),
+      screen.getByLabelText("Confirm new password", { exact: true }),
+    ];
+    for (const field of fields) await user.type(field, "sample-password");
+    const input = screen.getAllByLabelText(label, { exact: true })[occurrence];
+    if (!input) throw new Error("Missing password field");
+    const original = input.getAttribute("value");
+    const toggle = screen.getByRole("button", { name: `Show ${toggleLabel}` });
+    expect(toggle).toHaveAttribute("aria-controls", input.id);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    input.focus();
+    await user.tab();
+    expect(toggle).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(input).toHaveAttribute("type", "text");
+    expect(input).toHaveValue(original);
+    for (const other of fields) {
+      if (other !== input) expect(other).toHaveAttribute("type", "password");
+    }
+    const hide = screen.getByRole("button", { name: `Hide ${toggleLabel}` });
+    expect(hide).toHaveAttribute("aria-pressed", "true");
+    await user.click(hide);
+    expect(input).toHaveAttribute("type", "password");
+    expect(input).toHaveValue(original);
+    expect(send).not.toHaveBeenCalled();
+    expect(change).not.toHaveBeenCalled();
+    cache.clear();
+  },
+);
 test("account settings permit eight-character current, new, and confirmation passwords", (): void => {
   const cache = mount();
   const fields = [

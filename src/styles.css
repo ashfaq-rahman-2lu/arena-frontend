@@ -1055,6 +1055,18 @@ h3 {
   text-align: right;
   margin: -7px 0 25px;
 }
+.password-input {
+  position: relative;
+}
+.password-input input {
+  padding-inline-end: 58px;
+}
+.password-input-toggle {
+  position: absolute;
+  inset-inline-end: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+}
 .auth-bottom {
   border-top: 1px solid var(--line);
   margin-top: 25px;
