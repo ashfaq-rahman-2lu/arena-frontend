@@ -28,6 +28,58 @@ function mount(mode: string): QueryClient {
 }
 
 test.each(["login", "register", "reset"])(
+  "%s supports showing and hiding the password without losing its value",
+  async (mode: string): Promise<void> => {
+    const user = userEvent.setup();
+    const cache = mount(mode);
+    const input = screen.getByLabelText("Password", { exact: true });
+    const login = vi.spyOn(api, "login");
+    expect(input).toHaveAttribute("type", "password");
+    await user.type(input, "example-password");
+    await user.tab();
+    const toggle = screen.getByRole("button", {
+      name: "Show password",
+    });
+    expect(toggle).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(input).toHaveAttribute("type", "text");
+    expect(input).toHaveValue("example-password");
+    expect(
+      screen.getByRole("button", { name: "Hide password" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard(" ");
+    expect(input).toHaveAttribute("type", "password");
+    expect(input).toHaveValue("example-password");
+    expect(login).not.toHaveBeenCalled();
+    cache.clear();
+  },
+);
+
+test("reset password fields have independent visibility controls", async (): Promise<void> => {
+  const user = userEvent.setup();
+  const cache = mount("reset");
+  await user.click(
+    screen.getByRole("button", { name: "Show password confirmation" }),
+  );
+  expect(screen.getByLabelText("Confirm new password")).toHaveAttribute(
+    "type",
+    "text",
+  );
+  expect(screen.getByLabelText("Password", { exact: true })).toHaveAttribute(
+    "type",
+    "password",
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Hide password confirmation" }),
+  );
+  expect(screen.getByLabelText("Confirm new password")).toHaveAttribute(
+    "type",
+    "password",
+  );
+  cache.clear();
+});
+
+test.each(["login", "register", "reset"])(
   "%s permits 8–128 characters in all password fields",
   (mode: string): void => {
     const cache = mount(mode);

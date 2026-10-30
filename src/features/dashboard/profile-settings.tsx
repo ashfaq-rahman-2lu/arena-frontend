@@ -4,6 +4,7 @@ import { apiUrl } from "../../shared/api/api-origin";
 import { api, errorMessage } from "../../shared/api/arena-api";
 import { queryKeys } from "../../shared/api/query-keys";
 import { Field, Modal } from "../../shared/ui/primitives";
+import { PasswordInput } from "../../shared/ui/password-input";
 import type { EmailChangeResult, Session } from "../../shared/api/arena-api";
 interface ProfileSettingsProps {
   session: Session;
@@ -126,8 +127,8 @@ function ProfileSettingsForm({
           </Field>
           {session.user?.hasPassword && (
             <Field label="Current password">
-              <input
-                type="password"
+              <PasswordInput
+                visibilityLabel="current password for email change"
                 autoComplete="current-password"
                 minLength={8}
                 maxLength={128}
@@ -188,8 +189,8 @@ function ProfileSettingsForm({
             }}
           >
             <Field label="Current password">
-              <input
-                type="password"
+              <PasswordInput
+                visibilityLabel="current password"
                 autoComplete="current-password"
                 minLength={8}
                 maxLength={128}
@@ -201,8 +202,8 @@ function ProfileSettingsForm({
               />
             </Field>
             <Field label="New password">
-              <input
-                type="password"
+              <PasswordInput
+                visibilityLabel="new password"
                 autoComplete="new-password"
                 minLength={8}
                 maxLength={128}
@@ -214,8 +215,8 @@ function ProfileSettingsForm({
               />
             </Field>
             <Field label="Confirm new password">
-              <input
-                type="password"
+              <PasswordInput
+                visibilityLabel="password confirmation"
                 autoComplete="new-password"
                 minLength={8}
                 maxLength={128}
