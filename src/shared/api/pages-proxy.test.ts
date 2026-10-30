@@ -1,5 +1,8 @@
 import { expect, test } from "vitest";
-import { proxyApi } from "../../../functions/api/[[path]]";
+import {
+  proxyApi,
+  type ProxyFailureLog,
+} from "../../../functions/api/[[path]]";
 test("Pages proxy forwards cookies, CSRF, query and body to the fixed Render origin", async (): Promise<void> => {
   let forwarded: Request | undefined;
   const result = await proxyApi(
@@ -116,4 +119,120 @@ test("Render's HTML wake-up response becomes an actionable API gateway error", a
     code: "INTEGRATION_UNAVAILABLE",
     message: "The API is waking up or unavailable. Please retry shortly.",
   });
+});
+
+test("gateway failures log safe diagnostics and return the same request ID", async (): Promise<void> => {
+  const logs: ProxyFailureLog[] = [];
+  let forwardedId: string | null = null;
+  const result = await proxyApi(
+    new Request(
+      "https://arena.pages.dev/api/v1/auth/session?token=private-query",
+      {
+        headers: {
+          "X-Request-ID": "trace-123",
+          Cookie: "private-cookie",
+          Authorization: "Bearer private-auth",
+        },
+      },
+    ),
+    { API_ORIGIN: "https://arena.onrender.com" },
+    async (request: Request): Promise<Response> => {
+      forwardedId = request.headers.get("x-request-id");
+      throw new TypeError("private-provider-message", {
+        cause: new Error("private-cause", { cause: "private-nested-cause" }),
+      });
+    },
+    (entry: ProxyFailureLog): void => {
+      logs.push(entry);
+    },
+  );
+  expect(result.status).toBe(502);
+  expect(result.headers.get("x-request-id")).toBe("trace-123");
+  expect(forwardedId).toBe("trace-123");
+  expect(logs).toEqual([
+    expect.objectContaining({
+      event: "api_proxy_failed",
+      requestId: "trace-123",
+      method: "GET",
+      pathname: "/api/v1/auth/session",
+      upstreamOrigin: "https://arena.onrender.com",
+      reason: "upstream_request_failed",
+      statusCode: 502,
+      errorType: "TypeError",
+    }),
+  ]);
+  expect(logs[0]?.durationMs).toBeGreaterThanOrEqual(0);
+  expect(JSON.stringify(logs)).not.toMatch(/private-|Bearer/);
+  expect(await result.text()).not.toContain("private-");
+});
+
+test("HTML upstream diagnostics record its status without logging its body", async (): Promise<void> => {
+  const logs: ProxyFailureLog[] = [];
+  const result = await proxyApi(
+    new Request("https://arena.pages.dev/api/v1/auth/session"),
+    { API_ORIGIN: "https://arena.onrender.com" },
+    async (_request: Request): Promise<Response> =>
+      new Response("<html>private-provider-content</html>", {
+        status: 503,
+        headers: { "Content-Type": "text/html" },
+      }),
+    (entry: ProxyFailureLog): void => {
+      logs.push(entry);
+    },
+  );
+  expect(result.status).toBe(502);
+  expect(logs).toEqual([
+    expect.objectContaining({
+      reason: "upstream_html",
+      upstreamStatus: 503,
+      statusCode: 502,
+    }),
+  ]);
+  expect(logs[0]?.requestId).toMatch(/^[\w-]{1,100}$/);
+  expect(result.headers.get("x-request-id")).toBe(logs[0]?.requestId);
+  expect(JSON.stringify(logs)).not.toContain("private-provider-content");
+});
+
+test("invalid gateway configuration is logged without exposing the configured credentials", async (): Promise<void> => {
+  const logs: ProxyFailureLog[] = [];
+  const result = await proxyApi(
+    new Request("https://arena.pages.dev/api/v1/health"),
+    { API_ORIGIN: "https://user:private-password@arena.onrender.com" },
+    async (_request: Request): Promise<Response> => {
+      throw new Error("must not fetch");
+    },
+    (entry: ProxyFailureLog): void => {
+      logs.push(entry);
+    },
+  );
+  expect(result.status).toBe(503);
+  expect(logs).toEqual([
+    expect.objectContaining({
+      reason: "invalid_configuration",
+      statusCode: 503,
+    }),
+  ]);
+  expect(JSON.stringify(logs)).not.toContain("private-password");
+});
+
+test("successful API requests carry a generated request ID without failure logs", async (): Promise<void> => {
+  const logs: ProxyFailureLog[] = [];
+  let forwardedId: string | null = null;
+  const result = await proxyApi(
+    new Request("https://arena.pages.dev/api/v1/health", {
+      headers: { "X-Request-ID": "invalid request ID" },
+    }),
+    { API_ORIGIN: "https://arena.onrender.com" },
+    async (request: Request): Promise<Response> => {
+      forwardedId = request.headers.get("x-request-id");
+      return Response.json({ status: "ok" });
+    },
+    (entry: ProxyFailureLog): void => {
+      logs.push(entry);
+    },
+  );
+  expect(result.status).toBe(200);
+  expect(forwardedId).toMatch(/^[\w-]{1,100}$/);
+  expect(result.headers.get("x-request-id")).toBe(forwardedId);
+  expect(logs).toEqual([]);
 });
