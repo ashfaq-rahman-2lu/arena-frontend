@@ -9,7 +9,12 @@ import {
   useNavigationType,
 } from "react-router-dom";
 import { expect, test, vi } from "vitest";
-import { api, type Match, type Tournament } from "../../shared/api/arena-api";
+import {
+  api,
+  type Match,
+  type Session,
+  type Tournament,
+} from "../../shared/api/arena-api";
 import { match, tournament } from "../../test/fixtures";
 import { TournamentPage } from "./tournament-page";
 
@@ -55,7 +60,7 @@ function show(
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  cache.setQueryData(["session"], {
+  const session: Session = {
     csrf: "csrf",
     user: {
       id: "owner",
@@ -65,7 +70,9 @@ function show(
       googleLinked: false,
     },
     googleEnabled: false,
-  });
+  };
+  cache.setQueryData(["session"], session);
+  vi.spyOn(api, "session").mockResolvedValue(session);
   vi.spyOn(api, "get").mockResolvedValue(value);
   vi.spyOn(api, "public").mockResolvedValue(value);
   render(
