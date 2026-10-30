@@ -167,7 +167,7 @@ export function TournamentPage({
     resultTriggerRef.current?.focus();
   };
   const [selected, setSelected] = useState<Match | null>(null),
-    [publicStatsMatch, setPublicStatsMatch] = useState<Match | null>(null),
+    [statsMatch, setStatsMatch] = useState<Match | null>(null),
     [showPreview, setShowPreview] = useState(false),
     [showPairing, setShowPairing] = useState(false),
     [showQualification, setShowQualification] = useState(false),
@@ -444,6 +444,18 @@ export function TournamentPage({
   };
   const fixtureRow = (m: Match): React.JSX.Element => {
     const played = m.homeScore !== null;
+    const statsTrigger =
+      played && t.statsEnabled ? (
+        <button
+          type="button"
+          className="button small ghost fixture-stats-trigger"
+          aria-label={`View stats: ${name(m.homeId)} vs ${name(m.awayId)}`}
+          onClick={(): void => setStatsMatch(m)}
+        >
+          <ChartNoAxesCombined size={14} aria-hidden="true" />
+          <span>View stats</span>
+        </button>
+      ) : null;
     return (
       <div className={`fixture-row ${played ? "played" : ""}`} key={m.id}>
         <span className="round-label mono">
@@ -494,24 +506,20 @@ export function TournamentPage({
           <span>{name(m.awayId)}</span>
         </div>
         {admin ? (
-          <button
-            aria-label={`${played ? "Edit result" : "Add result"}: ${name(m.homeId)} vs ${name(m.awayId)}, round ${m.round}`}
-            className={`button small ${played ? "ghost" : "secondary"}`}
-            onClick={(): void => setSelected(m)}
-          >
-            {played ? <Pencil size={13} /> : <PlusIcon />}
-            <span>{played ? "Edit" : "Add"}</span>
-          </button>
-        ) : played && t.statsEnabled ? (
-          <button
-            type="button"
-            className="button small ghost fixture-stats-trigger"
-            aria-label={`View stats: ${name(m.homeId)} vs ${name(m.awayId)}`}
-            onClick={(): void => setPublicStatsMatch(m)}
-          >
-            <ChartNoAxesCombined size={14} aria-hidden="true" />
-            <span>View stats</span>
-          </button>
+          <div className="fixture-actions">
+            {statsTrigger}
+            <button
+              type="button"
+              aria-label={`${played ? "Edit result" : "Add result"}: ${name(m.homeId)} vs ${name(m.awayId)}, round ${m.round}`}
+              className={`button small ${played ? "ghost" : "secondary"}`}
+              onClick={(): void => setSelected(m)}
+            >
+              {played ? <Pencil size={13} /> : <PlusIcon />}
+              <span>{played ? "Edit" : "Add"}</span>
+            </button>
+          </div>
+        ) : statsTrigger ? (
+          statsTrigger
         ) : (
           <span className={`fixture-state ${played ? "lime-text" : "muted"}`}>
             {played ? <Check size={16} /> : <span className="status-dot" />}
@@ -768,7 +776,7 @@ export function TournamentPage({
               t={t}
               admin={admin}
               onSelect={setSelected}
-              onViewStats={setPublicStatsMatch}
+              onViewStats={setStatsMatch}
             />
           ))}
         {tab === "teams" && (
@@ -906,13 +914,13 @@ export function TournamentPage({
           />
         </Suspense>
       )}
-      {publicStatsMatch && !admin && (
+      {statsMatch && (
         <PublicMatchStatsDialog
           publicId={t.publicId}
-          matchId={publicStatsMatch.id}
-          homeName={name(publicStatsMatch.homeId)}
-          awayName={name(publicStatsMatch.awayId)}
-          onClose={(): void => setPublicStatsMatch(null)}
+          matchId={statsMatch.id}
+          homeName={name(statsMatch.homeId)}
+          awayName={name(statsMatch.awayId)}
+          onClose={(): void => setStatsMatch(null)}
         />
       )}
       {showPreview && (

@@ -2326,6 +2326,13 @@ td:nth-child(2) {
   width: 102px;
   font-size: 0.75rem;
 }
+.fixture-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  gap: 4px;
+}
 .fixture-row .fixture-stats-trigger {
   gap: 5px;
 }
@@ -3633,6 +3640,7 @@ h3 {
     width: auto;
   }
   .fixture-row > .button,
+  .fixture-row > .fixture-actions,
   .fixture-row > .fixture-state {
     grid-column: 3;
     grid-row: 1;
@@ -3651,6 +3659,12 @@ h3 {
     min-width: 0;
     min-height: 40px;
     padding: 4px 7px;
+  }
+  .fixture-row > .fixture-actions {
+    grid-column: 2 / -1;
+  }
+  .fixture-actions .button {
+    min-width: 0;
   }
   .setup-summary {
     grid-row: auto;
