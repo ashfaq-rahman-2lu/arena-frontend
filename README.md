@@ -39,6 +39,10 @@ The frontend image serves static files; it has no hardcoded backend container ho
 
 Cookie sessions work with sibling HTTPS subdomains, e.g. `app.example.com` and `api.example.com`, while the API allows the exact frontend origin via credentialed CORS. For different root domains, configure the frontend hosting ingress to forward `/api` to the separately hosted API and leave `VITE_API_BASE_URL` empty. Static Nginx in this image does not automatically configure that external ingress. A same-origin proxy must also forward OAuth callback routes; configure Google's callback URL accordingly.
 
+## Login navigation
+
+Opening `/auth/login` with an active session redirects to `/dashboard` (or a safe `returnTo` destination when supplied), replacing the login history entry. Login and registration wait for the initial session check so Google sign-in (when enabled) and the email form appear together, without inserting the Google button above fields already in use. Signed-out visitors can sign in normally, and successful sign-in still honors a safe `returnTo` destination. Password reset and email confirmation/verification pages remain accessible with an active session.
+
 ## Reviewing match results
 
 Optional match statistics start collapsed so organizers can enter scores quickly. Select **Add match statistics (optional)** to edit them. Existing recorded statistics (including zero values) and statistics applied from a scorecard open the section for review. Collapsing it preserves the draft and does not exclude those statistics from saving.

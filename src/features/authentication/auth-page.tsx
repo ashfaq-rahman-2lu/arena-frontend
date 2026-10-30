@@ -4,6 +4,7 @@ import { ArrowRight, LoaderCircle, Mail, ShieldCheck } from "lucide-react";
 import { useRef, useState } from "react";
 import {
   Link,
+  Navigate,
   useNavigate,
   useParams,
   useSearchParams,
@@ -14,14 +15,14 @@ import {
   errorMessage,
   safeReturnUrl,
 } from "../../shared/api/arena-api";
-import { Field, useSession } from "../../shared/ui/primitives";
+import { Field, Spinner, useSession } from "../../shared/ui/primitives";
 import { PasswordInput } from "../../shared/ui/password-input";
 export function AuthPage(): React.JSX.Element {
   const { mode = "login" } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const cache = useQueryClient();
-  const { data: session } = useSession();
+  const { data: session, isPending: sessionPending } = useSession();
   const [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -87,6 +88,10 @@ export function AuthPage(): React.JSX.Element {
       setPending(false);
     }
   };
+  if (["login", "register"].includes(mode) && sessionPending)
+    return <Spinner />;
+  if (mode === "login" && session?.user)
+    return <Navigate to={safeReturnUrl(params.get("returnTo"))} replace />;
   return (
     <main id="main-content" className="container auth-layout">
       <div className="auth-story">
