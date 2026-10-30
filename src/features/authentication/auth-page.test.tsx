@@ -1,31 +1,192 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, test, vi } from "vitest";
-import { api } from "../../shared/api/arena-api";
+import { api, type Session } from "../../shared/api/arena-api";
 import { AuthPage } from "./auth-page";
 
-function mount(mode: string): QueryClient {
+interface AuthPageTestOptions {
+  session?: Session | null;
+  search?: string;
+}
+
+const guestSession: Session = {
+  csrf: "csrf",
+  googleEnabled: false,
+  user: null,
+};
+const signedInSession: Session = {
+  ...guestSession,
+  user: {
+    id: "organizer",
+    name: "Alex Arena",
+    email: "alex@example.test",
+    hasPassword: true,
+    googleLinked: false,
+  },
+};
+
+function mount(
+  mode: string,
+  { session = guestSession, search = "" }: AuthPageTestOptions = {},
+): QueryClient {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  cache.setQueryData(["session"], {
-    csrf: "csrf",
-    googleEnabled: false,
-    user: null,
-  });
+  if (session) cache.setQueryData(["session"], session);
   render(
     <QueryClientProvider client={cache}>
-      <MemoryRouter initialEntries={[`/auth/${mode}`]}>
+      <MemoryRouter initialEntries={[`/auth/${mode}${search}`]}>
         <Routes>
           <Route path="/auth/:mode" element={<AuthPage />} />
+          <Route path="/dashboard" element={<h1>Dashboard</h1>} />
+          <Route path="/t/:publicId" element={<h1>Public tournament</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
   return cache;
 }
+
+test("signed-in visitors to login are redirected to the dashboard", async (): Promise<void> => {
+  const cache = mount("login", { session: signedInSession });
+  expect(
+    await screen.findByRole("heading", { name: "Dashboard" }),
+  ).toBeVisible();
+  expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
+  cache.clear();
+});
+
+test.each(["signed-in", "signed-out"])(
+  "login waits for the initial session check before rendering for %s visitors",
+  async (state: string): Promise<void> => {
+    let finishSession: ((session: Session) => void) | undefined;
+    const pending = new Promise<Session>(
+      (resolve: (session: Session) => void): void => {
+        finishSession = resolve;
+      },
+    );
+    vi.spyOn(api, "session").mockReturnValue(pending);
+    const cache = mount("login", { session: null });
+    expect(screen.getByRole("status")).toHaveTextContent("Loading your arena");
+    expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
+    await act(async (): Promise<void> => {
+      finishSession?.(state === "signed-in" ? signedInSession : guestSession);
+      await pending;
+    });
+    if (state === "signed-in") {
+      expect(
+        await screen.findByRole("heading", { name: "Dashboard" }),
+      ).toBeVisible();
+    } else {
+      expect(await screen.findByLabelText("Email address")).toBeVisible();
+      expect(
+        screen.queryByRole("heading", { name: "Dashboard" }),
+      ).not.toBeInTheDocument();
+    }
+    cache.clear();
+  },
+);
+
+test("a failed session check leaves the login form available", async (): Promise<void> => {
+  vi.spyOn(api, "session").mockRejectedValue(new Error("Session unavailable"));
+  const cache = mount("login", { session: null });
+  expect(await screen.findByLabelText("Email address")).toBeVisible();
+  expect(
+    screen.queryByRole("heading", { name: "Dashboard" }),
+  ).not.toBeInTheDocument();
+  cache.clear();
+});
+
+test.each(["login", "register"])(
+  "%s shows Google and email options together after a slow session response",
+  async (mode: string): Promise<void> => {
+    let finishSession: ((session: Session) => void) | undefined;
+    const pending = new Promise<Session>(
+      (resolve: (session: Session) => void): void => {
+        finishSession = resolve;
+      },
+    );
+    vi.spyOn(api, "session").mockReturnValue(pending);
+    const cache = mount(mode, { session: null });
+    expect(screen.getByRole("status")).toHaveTextContent("Loading your arena");
+    expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
+    await act(async (): Promise<void> => {
+      finishSession?.({ ...guestSession, googleEnabled: true });
+      await pending;
+    });
+    expect(
+      await screen.findByRole("link", { name: /Continue with Google/ }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Email address")).toBeVisible();
+    cache.clear();
+  },
+);
+
+test.each(["login", "register"])(
+  "%s waits for sign-in options when retrying a failed session check",
+  async (mode: string): Promise<void> => {
+    let finishSession: ((session: Session) => void) | undefined;
+    const pending = new Promise<Session>(
+      (resolve: (session: Session) => void): void => {
+        finishSession = resolve;
+      },
+    );
+    vi.spyOn(api, "session")
+      .mockRejectedValueOnce(new Error("Session unavailable"))
+      .mockReturnValueOnce(pending);
+    const cache = mount(mode, { session: null });
+    expect(await screen.findByLabelText("Email address")).toBeVisible();
+    let refresh: Promise<void> | undefined;
+    act((): void => {
+      refresh = cache.refetchQueries({ queryKey: ["session"] });
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Loading your arena",
+    );
+    expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
+    await act(async (): Promise<void> => {
+      finishSession?.({ ...guestSession, googleEnabled: true });
+      await refresh;
+    });
+    expect(
+      await screen.findByRole("link", { name: /Continue with Google/ }),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Email address")).toBeVisible();
+    cache.clear();
+  },
+);
+
+test.each(["reset", "verify", "email-confirm"])(
+  "signed-in visitors can still open the %s token workflow",
+  (mode: string): void => {
+    const cache = mount(mode, { session: signedInSession });
+    expect(screen.getByRole("main")).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Dashboard" }),
+    ).not.toBeInTheDocument();
+    cache.clear();
+  },
+);
+
+test("signing in still follows a safe return destination", async (): Promise<void> => {
+  vi.spyOn(api, "login").mockResolvedValue(signedInSession);
+  const cache = mount("login", { search: "?returnTo=%2Ft%2FARENA2026" });
+  await userEvent.type(
+    screen.getByLabelText("Email address"),
+    "alex@example.test",
+  );
+  await userEvent.type(
+    screen.getByLabelText("Password", { exact: true }),
+    "password123",
+  );
+  await userEvent.click(screen.getByRole("button", { name: /Sign in/i }));
+  expect(
+    await screen.findByRole("heading", { name: "Public tournament" }),
+  ).toBeVisible();
+  cache.clear();
+});
 
 test.each(["login", "register", "reset"])(
   "%s supports showing and hiding the password without losing its value",
