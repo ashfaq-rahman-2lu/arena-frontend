@@ -9,21 +9,62 @@ interface StreamingRequestInit extends RequestInit {
   duplex: "half";
 }
 export type ProxyTransport = (request: Request) => Promise<Response>;
-export interface ProxyFailureLog {
+interface ProxyResponseDiagnostics {
+  upstreamStatus: number;
+  upstreamContentType?: string;
+  upstreamRetryAfter?: string;
+  upstreamCfRay?: string;
+}
+export interface ProxyFailureLog extends Partial<ProxyResponseDiagnostics> {
   event: "api_proxy_failed";
   requestId: string;
   method: string;
   pathname: string;
   upstreamOrigin?: string;
-  reason: "invalid_configuration" | "upstream_html" | "upstream_request_failed";
-  statusCode: 502 | 503;
+  reason:
+    | "invalid_configuration"
+    | "upstream_html"
+    | "upstream_http_error"
+    | "upstream_request_failed";
+  statusCode: number;
   durationMs: number;
-  upstreamStatus?: number;
   errorType?: string;
 }
+type ProxyFailureDetails = Omit<
+  ProxyFailureLog,
+  "event" | "requestId" | "method" | "pathname" | "durationMs"
+>;
 export type ProxyLogger = (entry: ProxyFailureLog) => void;
 function logProxyFailure(entry: ProxyFailureLog): void {
   console.error(JSON.stringify(entry));
+}
+function responseDiagnostics(response: Response): ProxyResponseDiagnostics {
+  const diagnostics: ProxyResponseDiagnostics = {
+    upstreamStatus: response.status,
+  };
+  const contentType = response.headers
+    .get("content-type")
+    ?.split(";", 1)[0]
+    ?.trim()
+    .toLowerCase();
+  if (
+    contentType &&
+    /^[a-z0-9!#$&^_.+-]{1,64}\/[a-z0-9!#$&^_.+-]{1,64}$/.test(contentType)
+  )
+    diagnostics.upstreamContentType = contentType;
+  const retryAfter = response.headers.get("retry-after")?.trim();
+  if (
+    retryAfter &&
+    (/^\d{1,10}$/.test(retryAfter) ||
+      (retryAfter.length === 29 &&
+        Number.isFinite(Date.parse(retryAfter)) &&
+        new Date(retryAfter).toUTCString() === retryAfter))
+  )
+    diagnostics.upstreamRetryAfter = retryAfter;
+  const cfRay = response.headers.get("cf-ray")?.trim();
+  if (cfRay && /^[a-f0-9]{16}(?:-[a-z]{3})?$/i.test(cfRay))
+    diagnostics.upstreamCfRay = cfRay;
+  return diagnostics;
 }
 function failure(
   status: number,
@@ -52,16 +93,7 @@ export async function proxyApi(
     incomingId && /^[\w-]{1,100}$/.test(incomingId)
       ? incomingId
       : crypto.randomUUID();
-  const logFailure = (
-    details: Pick<
-      ProxyFailureLog,
-      | "reason"
-      | "statusCode"
-      | "upstreamOrigin"
-      | "upstreamStatus"
-      | "errorType"
-    >,
-  ): void => {
+  const logFailure = (details: ProxyFailureDetails): void => {
     logger({
       event: "api_proxy_failed",
       requestId,
@@ -128,7 +160,7 @@ export async function proxyApi(
         reason: "upstream_html",
         statusCode: 502,
         upstreamOrigin: origin.origin,
-        upstreamStatus: upstream.status,
+        ...responseDiagnostics(upstream),
       });
       await upstream.body?.cancel();
       return failure(
@@ -137,6 +169,14 @@ export async function proxyApi(
         "The API is waking up or unavailable. Please retry shortly.",
         requestId,
       );
+    }
+    if (upstream.status === 429 || upstream.status >= 500) {
+      logFailure({
+        reason: "upstream_http_error",
+        statusCode: upstream.status,
+        upstreamOrigin: origin.origin,
+        ...responseDiagnostics(upstream),
+      });
     }
     const responseHeaders = new Headers(upstream.headers);
     responseHeaders.set("Cache-Control", "no-store");

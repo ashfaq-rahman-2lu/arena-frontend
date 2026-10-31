@@ -3,6 +3,188 @@ import {
   proxyApi,
   type ProxyFailureLog,
 } from "../../../functions/api/[[path]]";
+
+test.each([429, 500, 502, 503, 504, 599])(
+  "upstream HTTP %s logs selected diagnostics once and preserves its response",
+  async (status: number): Promise<void> => {
+    const logs: ProxyFailureLog[] = [];
+    const body = '{"message":"private-response-body"}';
+    const upstream = new Response(body, {
+      status,
+      headers: {
+        "Content-Type":
+          "application/json; charset=utf-8; token=private-parameter",
+        "Retry-After": "30",
+        "CF-Ray": "a53060c1be6933a4-DAC",
+        "Set-Cookie": "session=private-response-cookie",
+        "X-Provider-Secret": "private-secret-header",
+        Location: "https://provider.invalid/?token=private-location",
+      },
+    });
+    const result = await proxyApi(
+      new Request(
+        "https://arena.pages.dev/api/v1/auth/session?token=private-query",
+        {
+          headers: {
+            "X-Request-ID": "trace-upstream-error",
+            Cookie: "private-request-cookie",
+            Authorization: "Bearer private-authorization",
+            "X-CSRF-Token": "private-csrf",
+          },
+        },
+      ),
+      { API_ORIGIN: "https://arena.onrender.com" },
+      async (_request: Request): Promise<Response> => upstream,
+      (entry: ProxyFailureLog): void => {
+        logs.push(entry);
+      },
+    );
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      event: "api_proxy_failed",
+      reason: "upstream_http_error",
+      requestId: "trace-upstream-error",
+      method: "GET",
+      pathname: "/api/v1/auth/session",
+      upstreamOrigin: "https://arena.onrender.com",
+      statusCode: status,
+      upstreamStatus: status,
+      upstreamContentType: "application/json",
+      upstreamRetryAfter: "30",
+      upstreamCfRay: "a53060c1be6933a4-DAC",
+    });
+    expect(logs[0]?.durationMs).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(logs)).not.toMatch(/private-|Bearer/);
+    expect(upstream.bodyUsed).toBe(false);
+    expect(result.status).toBe(status);
+    expect(result.headers.get("retry-after")).toBe("30");
+    expect(result.headers.get("set-cookie")).toBe(
+      "session=private-response-cookie",
+    );
+    expect(result.headers.get("x-request-id")).toBe("trace-upstream-error");
+    expect(await result.text()).toBe(body);
+  },
+);
+
+test.each([200, 429, 503])(
+  "HTML upstream %s logs selected metadata once while retaining the safe JSON 502",
+  async (status: number): Promise<void> => {
+    const logs: ProxyFailureLog[] = [];
+    const result = await proxyApi(
+      new Request("https://arena.pages.dev/api/v1/auth/session"),
+      { API_ORIGIN: "https://arena.onrender.com" },
+      async (_request: Request): Promise<Response> =>
+        new Response("<html>private-body</html>", {
+          status,
+          headers: {
+            "Content-Type": "text/html; charset=utf-8",
+            "Retry-After": "Sat, 31 Oct 2026 09:30:00 GMT",
+            "CF-Ray": "a53060c1be6933a4-DAC",
+          },
+        }),
+      (entry: ProxyFailureLog): void => {
+        logs.push(entry);
+      },
+    );
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      reason: "upstream_html",
+      statusCode: 502,
+      upstreamStatus: status,
+      upstreamContentType: "text/html",
+      upstreamRetryAfter: "Sat, 31 Oct 2026 09:30:00 GMT",
+      upstreamCfRay: "a53060c1be6933a4-DAC",
+    });
+    expect(JSON.stringify(logs)).not.toContain("private-body");
+    expect(result.status).toBe(502);
+    expect(await result.json()).toMatchObject({
+      code: "INTEGRATION_UNAVAILABLE",
+    });
+  },
+);
+
+test.each(["text/plain", "application/problem+json", null])(
+  "HTTP 429 diagnostics work with %s content type and missing optional headers",
+  async (contentType: string | null): Promise<void> => {
+    const logs: ProxyFailureLog[] = [];
+    await proxyApi(
+      new Request("https://arena.pages.dev/api/v1/auth/session"),
+      { API_ORIGIN: "https://arena.onrender.com" },
+      async (_request: Request): Promise<Response> =>
+        new Response(null, {
+          status: 429,
+          headers: contentType ? { "Content-Type": contentType } : {},
+        }),
+      (entry: ProxyFailureLog): void => {
+        logs.push(entry);
+      },
+    );
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      reason: "upstream_http_error",
+      upstreamStatus: 429,
+    });
+    expect(Object.keys(logs[0] ?? {}).sort()).toEqual(
+      [
+        "event",
+        "requestId",
+        "method",
+        "pathname",
+        "durationMs",
+        "reason",
+        "statusCode",
+        "upstreamOrigin",
+        "upstreamStatus",
+        ...(contentType ? ["upstreamContentType"] : []),
+      ].sort(),
+    );
+  },
+);
+
+test("malformed or oversized diagnostic header values are omitted from logs", async (): Promise<void> => {
+  const logs: ProxyFailureLog[] = [];
+  await proxyApi(
+    new Request("https://arena.pages.dev/api/v1/auth/session"),
+    { API_ORIGIN: "https://arena.onrender.com" },
+    async (_request: Request): Promise<Response> =>
+      new Response(null, {
+        status: 429,
+        headers: {
+          "Content-Type": "private-malformed-content-type".repeat(100),
+          "Retry-After": "private-malformed-retry".repeat(100),
+          "CF-Ray": "private-malformed-ray".repeat(100),
+        },
+      }),
+    (entry: ProxyFailureLog): void => {
+      logs.push(entry);
+    },
+  );
+  expect(logs).toHaveLength(1);
+  expect(logs[0]).toMatchObject({
+    reason: "upstream_http_error",
+    upstreamStatus: 429,
+  });
+  expect(JSON.stringify(logs)).not.toContain("private-");
+});
+
+test.each([200, 302, 400, 401, 403, 404, 409])(
+  "HTTP %s outside the diagnostic failure cases does not add failure logs",
+  async (status: number): Promise<void> => {
+    const logs: ProxyFailureLog[] = [];
+    const result = await proxyApi(
+      new Request("https://arena.pages.dev/api/v1/auth/session"),
+      { API_ORIGIN: "https://arena.onrender.com" },
+      async (_request: Request): Promise<Response> =>
+        new Response("unchanged", { status }),
+      (entry: ProxyFailureLog): void => {
+        logs.push(entry);
+      },
+    );
+    expect(result.status).toBe(status);
+    expect(await result.text()).toBe("unchanged");
+    expect(logs).toEqual([]);
+  },
+);
 test("Pages proxy forwards cookies, CSRF, query and body to the fixed Render origin", async (): Promise<void> => {
   let forwarded: Request | undefined;
   const result = await proxyApi(
