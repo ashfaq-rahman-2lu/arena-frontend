@@ -106,9 +106,7 @@ for (const mode of ["login", "register"]) {
       });
     });
     await page.goto(`/auth/${mode}`);
-    await expect(
-      page.getByText("Loading your arena…", { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole("main").getByRole("status")).toBeVisible();
     await expect(page.getByLabel("Email address")).toHaveCount(0);
     finishSession?.();
     await expect(
@@ -126,3 +124,79 @@ for (const mode of ["login", "register"]) {
     });
   });
 }
+
+test("a cold session recovers automatically and redirects an existing user", async ({
+  page,
+}: BrowserFixture): Promise<void> => {
+  await page.clock.install();
+  let attempts = 0;
+  await page.route("**/api/v1/**", async (route: Route): Promise<void> => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/v1/auth/session") {
+      attempts++;
+      await route.fulfill(
+        attempts < 3
+          ? {
+              status: 502,
+              json: { code: "INTEGRATION_UNAVAILABLE", message: "Starting" },
+            }
+          : { json: signedInSession },
+      );
+    } else if (path === "/api/v1/tournaments")
+      await route.fulfill({ json: tournaments });
+    else if (path === "/api/v1/following")
+      await route.fulfill({ json: following });
+    else await route.abort();
+  });
+  await page.goto("/auth/login");
+  await expect.poll((): number => attempts).toBe(1);
+  await expect(page.getByRole("main").getByRole("status")).toHaveText(
+    "Starting server…",
+  );
+  await expect(page.getByLabel("Email address")).toHaveCount(0);
+  await page.clock.runFor(3000);
+  await expect.poll((): number => attempts).toBe(2);
+  await page.clock.runFor(5000);
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page.getByRole("heading", { name: "Hey, Alex." })).toBeVisible();
+  expect(attempts).toBe(3);
+});
+
+test("session timeout preserves the protected route and offers keyboard retry", async ({
+  page,
+}: BrowserFixture, info: TestInfo): Promise<void> => {
+  await page.clock.install();
+  let ready = false;
+  await page.route("**/api/v1/**", async (route: Route): Promise<void> => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === "/api/v1/auth/session") {
+      if (ready) await route.fulfill({ json: signedInSession });
+    } else if (path === "/api/v1/tournaments")
+      await route.fulfill({ json: tournaments });
+    else if (path === "/api/v1/following")
+      await route.fulfill({ json: following });
+    else await route.abort();
+  });
+  await page.goto("/dashboard");
+  await expect(page.getByRole("main").getByRole("status")).toHaveText(
+    "Starting server…",
+  );
+  await page.screenshot({
+    path: info.outputPath("session-starting.png"),
+    fullPage: true,
+  });
+  await page.clock.runFor(120001);
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "Couldn’t connect to Arena",
+  );
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.screenshot({
+    path: info.outputPath("session-unavailable.png"),
+    fullPage: true,
+  });
+  ready = true;
+  const retry = page.getByRole("main").getByRole("button", { name: "Retry" });
+  await retry.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Hey, Alex." })).toBeVisible();
+});

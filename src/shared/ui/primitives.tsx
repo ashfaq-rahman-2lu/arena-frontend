@@ -37,6 +37,7 @@ import {
 import { Link } from "react-router-dom";
 import { useSession } from "../../features/authentication/use-session";
 import { AccountMenu } from "../../features/authentication/account-menu";
+import { SessionFeedback } from "../../features/authentication/session-feedback";
 export { useSession };
 const ToastContext = createContext<(message: string, error?: boolean) => void>(
   (): void => {},
@@ -93,7 +94,8 @@ export function Logo(): React.JSX.Element {
   );
 }
 export function Nav(): React.JSX.Element {
-  const { data, isPending } = useSession();
+  const session = useSession();
+  const data = session.data;
   return (
     <header className="topbar">
       <div className="container nav">
@@ -102,8 +104,8 @@ export function Nav(): React.JSX.Element {
           <Link to="/" className="quiet-link">
             Find a tournament
           </Link>
-          {isPending ? (
-            <span role="status">Checking session…</span>
+          {!data && (session.isPending || session.isError) ? (
+            <SessionFeedback session={session} variant="inline" />
           ) : data?.user ? (
             <AccountMenu key={data.user.id} session={data} />
           ) : (

@@ -23,6 +23,7 @@ import type {
   QueryObserverResult,
 } from "@tanstack/react-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { SessionFeedback } from "../authentication/session-feedback";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -260,7 +261,8 @@ export function TournamentPage({
       setActionError(errorMessage(error));
     }
   };
-  if (admin && session.isPending) return <Spinner />;
+  if (admin && !session.data && (session.isPending || session.isError))
+    return <SessionFeedback session={session} />;
   if (admin && !ownerId)
     return (
       <Navigate

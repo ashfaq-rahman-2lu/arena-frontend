@@ -1,5 +1,69 @@
 import { expect, test } from "vitest";
-import { createArenaApi, safeReturnUrl } from "./arena-api";
+import { ApiError, createArenaApi, safeReturnUrl } from "./arena-api";
+test("a cancelled session flight does not poison an immediate new session read", async (): Promise<void> => {
+  let calls = 0;
+  const instance = createArenaApi(
+    async (input: RequestInfo | URL): Promise<Response> => {
+      if (!(input instanceof Request)) throw new Error("Expected Request");
+      calls++;
+      if (calls > 1)
+        return new Response(
+          JSON.stringify({ csrf: "new", user: null, googleEnabled: false }),
+          { headers: { "Content-Type": "application/json" } },
+        );
+      return new Promise<Response>(
+        (
+          _resolve: (response: Response) => void,
+          reject: (reason: unknown) => void,
+        ): void => {
+          input.signal.addEventListener(
+            "abort",
+            (): void => reject(new DOMException("Cancelled", "AbortError")),
+            { once: true },
+          );
+        },
+      );
+    },
+  );
+  const controller = new AbortController();
+  const first = instance.session(controller.signal);
+  const cancelled = expect(first).rejects.toMatchObject({ name: "AbortError" });
+  await new Promise<void>((resolve: () => void): void => {
+    setTimeout(resolve, 0);
+  });
+  controller.abort();
+  const second = instance.session();
+  await cancelled;
+  await expect(second).resolves.toMatchObject({ csrf: "new" });
+  expect(calls).toBe(2);
+});
+test.each(["12", new Date(Date.now() + 12000).toUTCString()])(
+  "API errors preserve Retry-After (%s) for session recovery",
+  async (retryAfter: string): Promise<void> => {
+    const instance = createArenaApi(
+      async (): Promise<Response> =>
+        new Response(
+          JSON.stringify({ message: "Please wait", code: "RATE_LIMITED" }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": retryAfter,
+            },
+          },
+        ),
+    );
+    try {
+      await instance.session();
+      throw new Error("Expected rate limit failure");
+    } catch (error: unknown) {
+      if (!(error instanceof ApiError)) throw error;
+      expect(error.status).toBe(429);
+      expect(error.retryAfterMs).toBeGreaterThan(10000);
+      expect(error.retryAfterMs).toBeLessThanOrEqual(12000);
+    }
+  },
+);
 test("concurrent session bootstrap makes one request and shares CSRF", async (): Promise<void> => {
   let calls = 0;
   let release: ((response: Response) => void) | undefined;

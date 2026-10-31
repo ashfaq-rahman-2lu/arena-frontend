@@ -15,14 +15,16 @@ import {
   errorMessage,
   safeReturnUrl,
 } from "../../shared/api/arena-api";
-import { Field, Spinner, useSession } from "../../shared/ui/primitives";
+import { Field, useSession } from "../../shared/ui/primitives";
+import { SessionFeedback } from "./session-feedback";
 import { PasswordInput } from "../../shared/ui/password-input";
 export function AuthPage(): React.JSX.Element {
   const { mode = "login" } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const cache = useQueryClient();
-  const { data: session, isPending: sessionPending } = useSession();
+  const sessionQuery = useSession();
+  const session = sessionQuery.data;
   const [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -88,8 +90,12 @@ export function AuthPage(): React.JSX.Element {
       setPending(false);
     }
   };
-  if (["login", "register"].includes(mode) && sessionPending)
-    return <Spinner />;
+  if (
+    ["login", "register"].includes(mode) &&
+    !session &&
+    (sessionQuery.isPending || sessionQuery.isError)
+  )
+    return <SessionFeedback session={sessionQuery} />;
   if (mode === "login" && session?.user)
     return <Navigate to={safeReturnUrl(params.get("returnTo"))} replace />;
   return (

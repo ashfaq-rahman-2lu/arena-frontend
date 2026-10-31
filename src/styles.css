@@ -970,6 +970,17 @@ h3 {
   font-size: 0.8125rem;
   color: #a8b39a;
 }
+.session-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+.session-inline svg {
+  width: 16px;
+  height: 16px;
+}
 .spin {
   animation: spin 1.2s linear infinite;
 }
