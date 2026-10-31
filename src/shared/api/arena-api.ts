@@ -50,6 +50,7 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public code: string,
+    public retryAfterMs?: number,
   ) {
     super(message);
   }
@@ -77,7 +78,11 @@ export function safeReturnUrl(value: string | null): string {
     return "/dashboard";
   }
 }
-export function safeApiError(error: unknown, status: number): ApiError {
+export function safeApiError(
+  error: unknown,
+  status: number,
+  retryAfter: string | null = null,
+): ApiError {
   const fallback =
     status === 401
       ? "Sign in to continue"
@@ -98,7 +103,15 @@ export function safeApiError(error: unknown, status: number): ApiError {
     )
       code = error.code;
   }
-  return new ApiError(message, status, code);
+  let retryAfterMs: number | undefined;
+  if (retryAfter !== null) {
+    const value = retryAfter.trim();
+    const delay = /^\d+$/.test(value)
+      ? Number(value) * 1000
+      : Date.parse(value) - Date.now();
+    if (Number.isFinite(delay) && delay >= 0) retryAfterMs = delay;
+  }
+  return new ApiError(message, status, code, retryAfterMs);
 }
 type MatchStat = NonNullable<Suggestion["stats"]>[number];
 const statKeys: MatchStat["key"][] = [
@@ -188,7 +201,7 @@ function isSuggestion(value: unknown): value is Suggestion {
   );
 }
 export interface ArenaApi {
-  session: () => Promise<Session>;
+  session: (signal?: AbortSignal) => Promise<Session>;
   login: (email: string, password: string) => Promise<Session>;
   register: (name: string, email: string, password: string) => Promise<Message>;
   forgot: (email: string) => Promise<Message>;
@@ -304,6 +317,7 @@ export function createArenaApi(
   let generation = 0;
   let ownerId: string | null = null;
   let sessionFlight: Promise<Session> | null = null;
+  let sessionFlightSignal: AbortSignal | undefined;
   const client = createClient<paths>({
     baseUrl,
     credentials: "include",
@@ -327,7 +341,12 @@ export function createArenaApi(
         409,
         "IDENTITY_CHANGED",
       );
-    if (!response.ok) throw safeApiError(error, response.status);
+    if (!response.ok)
+      throw safeApiError(
+        error,
+        response.status,
+        response.headers.get("Retry-After"),
+      );
     if (data === undefined)
       throw new ApiError(
         "The server returned an empty response.",
@@ -355,11 +374,13 @@ export function createArenaApi(
         "INVALID_RESPONSE",
       );
   }
-  function getSession(): Promise<Session> {
-    if (sessionFlight) return sessionFlight;
+  function getSession(signal?: AbortSignal): Promise<Session> {
+    signal?.throwIfAborted();
+    if (sessionFlight && !sessionFlightSignal?.aborted) return sessionFlight;
     const epoch = generation;
-    const request = unwrap(client.GET("/api/v1/auth/session")).then(
+    const request = unwrap(client.GET("/api/v1/auth/session", { signal })).then(
       (data: Session): Session => {
+        signal?.throwIfAborted();
         if (epoch !== generation)
           throw new ApiError("Your session changed.", 409, "IDENTITY_CHANGED");
         if (ownerId !== (data.user?.id ?? null) && ownerId !== null) {
@@ -372,9 +393,13 @@ export function createArenaApi(
       },
     );
     sessionFlight = request;
+    sessionFlightSignal = signal;
     void request
       .finally((): void => {
-        if (sessionFlight === request) sessionFlight = null;
+        if (sessionFlight === request) {
+          sessionFlight = null;
+          sessionFlightSignal = undefined;
+        }
       })
       .catch((): void => {});
     return request;

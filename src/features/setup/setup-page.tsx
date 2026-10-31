@@ -33,6 +33,7 @@ import {
   validateSetupDraft,
 } from "./setup-draft";
 import { TeamImport } from "./team-import";
+import { SessionFeedback } from "../authentication/session-feedback";
 interface SetupFormProps {
   initial: Tournament | null;
   ownerId: string;
@@ -42,9 +43,9 @@ export function SetupPage(): ReactElement {
   const session = useSession();
   const ownerId = session.data?.user?.id ?? "";
   const existing = useCompetition(true, ownerId, id, "");
-  if (session.isPending || (id && ownerId && existing.isPending))
-    return <Spinner />;
-  if (session.error) return <ErrorState error={session.error} />;
+  if (!session.data && (session.isPending || session.isError))
+    return <SessionFeedback session={session} />;
+  if (id && ownerId && existing.isPending) return <Spinner />;
   if (!ownerId)
     return (
       <Navigate

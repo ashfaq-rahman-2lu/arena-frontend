@@ -14,6 +14,7 @@ import { ApiError, TournamentFilters } from "../../shared/api/arena-api";
 import { useDashboard } from "../../shared/api/query-hooks";
 import { Pagination } from "../../shared/ui/pagination";
 import { FollowingSection } from "./following-section";
+import { SessionFeedback } from "../authentication/session-feedback";
 import {
   ErrorState,
   Spinner,
@@ -23,7 +24,8 @@ import {
   useToast,
 } from "../../shared/ui/primitives";
 export function Dashboard(): React.JSX.Element {
-  const { data: session, isPending: sessionPending } = useSession();
+  const sessionQuery = useSession();
+  const session = sessionQuery.data;
   const toast = useToast();
   const [params, setParams] = useSearchParams();
   const filter = params.get("status") ?? "ALL",
@@ -53,7 +55,8 @@ export function Dashboard(): React.JSX.Element {
       return next;
     });
   };
-  if (sessionPending) return <Spinner />;
+  if (!session && (sessionQuery.isPending || sessionQuery.isError))
+    return <SessionFeedback session={sessionQuery} />;
   if (!session?.user) return <Navigate to="/auth/login" replace />;
   const shown = tournaments?.items ?? [],
     totals = tournaments?.totals;

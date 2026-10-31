@@ -3,7 +3,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { expect, test, vi } from "vitest";
-import { api, type Session } from "../../shared/api/arena-api";
+import { api, ApiError, type Session } from "../../shared/api/arena-api";
 import { AuthPage } from "./auth-page";
 
 interface AuthPageTestOptions {
@@ -69,7 +69,7 @@ test.each(["signed-in", "signed-out"])(
     );
     vi.spyOn(api, "session").mockReturnValue(pending);
     const cache = mount("login", { session: null });
-    expect(screen.getByRole("status")).toHaveTextContent("Loading your arena");
+    expect(screen.getByRole("status")).toHaveTextContent("Starting server");
     expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
     await act(async (): Promise<void> => {
       finishSession?.(state === "signed-in" ? signedInSession : guestSession);
@@ -89,13 +89,22 @@ test.each(["signed-in", "signed-out"])(
   },
 );
 
-test("a failed session check leaves the login form available", async (): Promise<void> => {
-  vi.spyOn(api, "session").mockRejectedValue(new Error("Session unavailable"));
+test("a failed session check offers a keyboard-accessible retry before revealing sign-in options", async (): Promise<void> => {
+  vi.spyOn(api, "session")
+    .mockRejectedValueOnce(new ApiError("Unavailable", 400, "REQUEST_FAILED"))
+    .mockResolvedValue({ ...guestSession, googleEnabled: true });
   const cache = mount("login", { session: null });
-  expect(await screen.findByLabelText("Email address")).toBeVisible();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Couldn’t connect to Arena",
+  );
+  expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
+  const retry = screen.getByRole("button", { name: "Retry" });
+  retry.focus();
+  await userEvent.keyboard("{Enter}");
   expect(
-    screen.queryByRole("heading", { name: "Dashboard" }),
-  ).not.toBeInTheDocument();
+    await screen.findByRole("link", { name: /Continue with Google/ }),
+  ).toBeVisible();
+  expect(screen.getByLabelText("Email address")).toBeVisible();
   cache.clear();
 });
 
@@ -110,7 +119,7 @@ test.each(["login", "register"])(
     );
     vi.spyOn(api, "session").mockReturnValue(pending);
     const cache = mount(mode, { session: null });
-    expect(screen.getByRole("status")).toHaveTextContent("Loading your arena");
+    expect(screen.getByRole("status")).toHaveTextContent("Starting server");
     expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
     await act(async (): Promise<void> => {
       finishSession?.({ ...guestSession, googleEnabled: true });
@@ -137,13 +146,13 @@ test.each(["login", "register"])(
       .mockRejectedValueOnce(new Error("Session unavailable"))
       .mockReturnValueOnce(pending);
     const cache = mount(mode, { session: null });
-    expect(await screen.findByLabelText("Email address")).toBeVisible();
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeVisible();
     let refresh: Promise<void> | undefined;
     act((): void => {
       refresh = cache.refetchQueries({ queryKey: ["session"] });
     });
     expect(await screen.findByRole("status")).toHaveTextContent(
-      "Loading your arena",
+      "Starting server",
     );
     expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
     await act(async (): Promise<void> => {
