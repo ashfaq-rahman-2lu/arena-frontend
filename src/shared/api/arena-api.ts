@@ -50,7 +50,6 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public code: string,
-    public retryAfterMs?: number,
   ) {
     super(message);
   }
@@ -78,11 +77,7 @@ export function safeReturnUrl(value: string | null): string {
     return "/dashboard";
   }
 }
-export function safeApiError(
-  error: unknown,
-  status: number,
-  retryAfter: string | null = null,
-): ApiError {
+export function safeApiError(error: unknown, status: number): ApiError {
   const fallback =
     status === 401
       ? "Sign in to continue"
@@ -103,15 +98,7 @@ export function safeApiError(
     )
       code = error.code;
   }
-  let retryAfterMs: number | undefined;
-  if (retryAfter !== null) {
-    const value = retryAfter.trim();
-    const delay = /^\d+$/.test(value)
-      ? Number(value) * 1000
-      : Date.parse(value) - Date.now();
-    if (Number.isFinite(delay) && delay >= 0) retryAfterMs = delay;
-  }
-  return new ApiError(message, status, code, retryAfterMs);
+  return new ApiError(message, status, code);
 }
 type MatchStat = NonNullable<Suggestion["stats"]>[number];
 const statKeys: MatchStat["key"][] = [
@@ -341,12 +328,7 @@ export function createArenaApi(
         409,
         "IDENTITY_CHANGED",
       );
-    if (!response.ok)
-      throw safeApiError(
-        error,
-        response.status,
-        response.headers.get("Retry-After"),
-      );
+    if (!response.ok) throw safeApiError(error, response.status);
     if (data === undefined)
       throw new ApiError(
         "The server returned an empty response.",

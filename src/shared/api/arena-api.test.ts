@@ -38,7 +38,7 @@ test("a cancelled session flight does not poison an immediate new session read",
   expect(calls).toBe(2);
 });
 test.each(["12", new Date(Date.now() + 12000).toUTCString()])(
-  "API errors preserve Retry-After (%s) for session recovery",
+  "rate limit responses with Retry-After (%s) remain typed API errors",
   async (retryAfter: string): Promise<void> => {
     const instance = createArenaApi(
       async (): Promise<Response> =>
@@ -59,8 +59,8 @@ test.each(["12", new Date(Date.now() + 12000).toUTCString()])(
     } catch (error: unknown) {
       if (!(error instanceof ApiError)) throw error;
       expect(error.status).toBe(429);
-      expect(error.retryAfterMs).toBeGreaterThan(10000);
-      expect(error.retryAfterMs).toBeLessThanOrEqual(12000);
+      expect(error.code).toBe("RATE_LIMITED");
+      expect(error.message).toBe("Please wait");
     }
   },
 );
