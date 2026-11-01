@@ -69,7 +69,9 @@ test.each(["signed-in", "signed-out"])(
     );
     vi.spyOn(api, "session").mockReturnValue(pending);
     const cache = mount("login", { session: null });
-    expect(screen.getByRole("status")).toHaveTextContent("Starting server");
+    expect(screen.getByRole("status", { name: "Loading" })).toHaveTextContent(
+      /^$/,
+    );
     expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
     await act(async (): Promise<void> => {
       finishSession?.(state === "signed-in" ? signedInSession : guestSession);
@@ -97,6 +99,9 @@ test("a failed session check offers a keyboard-accessible retry before revealing
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Couldn’t connect to Arena",
   );
+  expect(
+    screen.getByText("Check your connection and try again."),
+  ).toBeVisible();
   expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
   const retry = screen.getByRole("button", { name: "Retry" });
   retry.focus();
@@ -119,7 +124,9 @@ test.each(["login", "register"])(
     );
     vi.spyOn(api, "session").mockReturnValue(pending);
     const cache = mount(mode, { session: null });
-    expect(screen.getByRole("status")).toHaveTextContent("Starting server");
+    expect(screen.getByRole("status", { name: "Loading" })).toHaveTextContent(
+      /^$/,
+    );
     expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
     await act(async (): Promise<void> => {
       finishSession?.({ ...guestSession, googleEnabled: true });
@@ -151,9 +158,9 @@ test.each(["login", "register"])(
     act((): void => {
       refresh = cache.refetchQueries({ queryKey: ["session"] });
     });
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Starting server",
-    );
+    expect(
+      await screen.findByRole("status", { name: "Loading" }),
+    ).toHaveTextContent(/^$/);
     expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
     await act(async (): Promise<void> => {
       finishSession?.({ ...guestSession, googleEnabled: true });

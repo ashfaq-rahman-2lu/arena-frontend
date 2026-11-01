@@ -17,9 +17,9 @@ export function SessionFeedback({
       <div
         className={variant === "page" ? "loading" : "session-inline"}
         role="status"
+        aria-label="Loading"
       >
         <LoaderCircle className="spin" aria-hidden="true" />
-        <span>Starting server…</span>
       </div>
     ) : (
       <div
@@ -31,9 +31,7 @@ export function SessionFeedback({
           ) : (
             <span>Connection unavailable.</span>
           )}
-          {variant === "page" && (
-            <p>The server may still be starting. Please try again.</p>
-          )}
+          {variant === "page" && <p>Check your connection and try again.</p>}
         </div>
         <button
           type="button"
